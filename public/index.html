@@ -76,7 +76,7 @@
           </div>
           <div id="patAuth" class="mb-3">
             <label for="personalAccessToken" class="form-label">Personal Access Token</label>
-            <input type="password" class="form-control" id="personalAccessToken">
+            <input type="password" class="form-control" id="personalAccessToken" required>
             <div class="form-text">
               Create a token with <code>read_api</code> scope at 
               <code>Settings > Access Tokens</code> in your GitLab account
@@ -145,7 +145,7 @@
           <div class="card bg-light">
             <div class="card-body text-center">
               <h5 class="card-title">Total CI Minutes</h5>
-              <h2 id="total-minutes">0</h2>
+              <h2 id="total-minutes">0</2>
             </div>
           </div>
         </div>
@@ -278,12 +278,12 @@
             requestBody.samlSessionId = samlSession.id;
           }
           
+          // FIXED: Using the correct endpoint and properly forming the request
           const response = await fetch('/api/fetch-namespaces', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
-            credentials: 'same-origin',
             body: JSON.stringify(requestBody)
           });
           
@@ -394,7 +394,7 @@
                 
                 // Now fetch an authentication token
                 try {
-                  const tokenResponse = await fetch('/api/get-gitlab-token', {
+                  const tokenResponse = await fetch('/api/auth/get-gitlab-token', {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json'
@@ -498,19 +498,29 @@
         clearAlerts();
         
         try {
-          const response = await fetch('/api/fetch-ci-metrics', {
+          console.log("Sending request with:", {
+            gitlabUrl,
+            authMethod,
+            tokenProvided: !!personalAccessToken,
+            timeRange,
+            namespace
+          });
+          
+          const requestBody = {
+            gitlabUrl,
+            authMethod,
+            personalAccessToken,
+            samlSessionId: samlSession ? samlSession.id : null,
+            timeRange,
+            namespace
+          };
+          
+          const response = await fetch('/api/gitlab/fetch-ci-metrics', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-              gitlabUrl,
-              authMethod,
-              personalAccessToken,
-              samlSessionId: samlSession ? samlSession.id : null,
-              timeRange,
-              namespace
-            })
+            body: JSON.stringify(requestBody)
           });
           
           if (!response.ok) {

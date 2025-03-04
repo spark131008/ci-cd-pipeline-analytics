@@ -15,11 +15,31 @@ module.exports = async (req, res) => {
   }
 
   try {
+    console.log("CI metrics endpoint called with:", req.body);
     let { gitlabUrl, authMethod, personalAccessToken, timeRange, namespace } = req.body;
+
+      // Validate parameters
+      if (!gitlabUrl || typeof gitlabUrl !== 'string') {
+        return res.status(400).json({ error: 'Valid GitLab URL is required' });
+      }
     
     // Focus only on PAT authentication for now
     if (authMethod !== 'pat') {
       return res.status(400).json({ error: 'Only Personal Access Token authentication is supported' });
+    }
+
+    if (!personalAccessToken || typeof personalAccessToken !== 'string') {
+      return res.status(400).json({ error: 'Valid Personal Access Token is required' });
+    }
+
+    if (!timeRange || typeof timeRange !== 'string') {
+      // Default to month if timeRange is invalid
+      console.log("Invalid timeRange, defaulting to 'month'");
+      timeRange = 'month';
+    }
+
+    if (!namespace || typeof namespace !== 'string') {
+      return res.status(400).json({ error: 'Valid namespace is required' });
     }
     
     let token = personalAccessToken;
@@ -35,6 +55,7 @@ module.exports = async (req, res) => {
     }
 
     const dateRange = calculateDateRange(timeRange);
+    console.log("Date range:", dateRange);
     const projects = await fetchProjects(gitlabUrl, token, namespace);
     const projectsArray = Array.isArray(projects) ? projects : [];
     
