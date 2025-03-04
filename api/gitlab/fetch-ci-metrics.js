@@ -8,7 +8,8 @@ const {
 } = require('../../utils/gitlab');
 const axios = require('axios');
 
-export default async function handler(req, res) {
+// Change export default to module.exports
+module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -58,4 +59,4 @@ export default async function handler(req, res) {
       details: error.message 
     });
   }
-}
+};

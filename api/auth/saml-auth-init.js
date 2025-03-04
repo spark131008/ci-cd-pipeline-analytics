@@ -1,7 +1,7 @@
-// api/auth/saml-auth-init.js
 const { createSession } = require('../../utils/auth');
 
-export default function handler(req, res) {
+// Change export default to module.exports
+module.exports = (req, res) => {
   // Only handle GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -21,4 +21,4 @@ export default function handler(req, res) {
   
   // Redirect to GitLab's SAML login page
   res.redirect(`${gitlabUrl}/users/auth/saml`);
-}
+};

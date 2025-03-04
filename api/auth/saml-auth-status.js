@@ -1,7 +1,6 @@
-// api/auth/saml-auth-status.js
 const { getSession, updateSession } = require('../../utils/auth');
 
-export default function handler(req, res) {
+module.exports = (req, res) => {
   // Only handle GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -35,4 +34,4 @@ export default function handler(req, res) {
     username: session.username,
     session: session.authenticated ? { id: session.id } : null
   });
-}
+};

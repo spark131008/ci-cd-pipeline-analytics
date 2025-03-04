@@ -51,67 +51,32 @@ app.get('/', (req, res) => {
   }
 });
 
-// SAML auth init route
-app.get('/api/saml-auth-init', (req, res) => {
-  const { gitlabUrl } = req.query;
-  
-  if (!gitlabUrl) {
-    return res.status(400).send('GitLab URL is required');
+// Add API routes
+app.use('/api/fetch-ci-metrics', require('./gitlab/fetch-ci-metrics'));
+app.use('/api/fetch-namespaces', require('./fetch-namespaces'));
+app.use('/api/saml-auth-init', require('./auth/saml-auth-init'));
+app.use('/api/saml-auth-status', require('./auth/saml-auth-status'));
+
+// Handle any other route
+app.get('*', (req, res) => {
+  try {
+    // First, try to serve from public directory
+    const requestedPath = req.path.substring(1);  // Remove leading slash
+    const filePath = path.join(process.cwd(), 'public', requestedPath);
+    
+    // Check if file exists
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      return res.sendFile(filePath);
+    }
+    
+    // If not found, return the main HTML file
+    const indexPath = path.join(process.cwd(), 'public', 'index.html');
+    res.setHeader('Content-Type', 'text/html');
+    res.status(200).sendFile(indexPath);
+  } catch (error) {
+    res.status(500).send('Error loading application');
   }
-  
-  // Create a session ID to track this authentication attempt
-  const sessionId = createSession(gitlabUrl);
-  
-  // Set a cookie with the session ID
-  res.setHeader('Set-Cookie', `samlAuthSessionId=${sessionId}; Path=/; HttpOnly`);
-  
-  // Redirect to GitLab's SAML login page
-  res.redirect(`${gitlabUrl}/users/auth/saml`);
 });
 
-// SAML auth status route
-app.get('/api/saml-auth-status', (req, res) => {
-  // Get session ID from cookie
-  const cookies = req.headers.cookie?.split(';').reduce((obj, c) => {
-    const [name, value] = c.trim().split('=');
-    obj[name] = value;
-    return obj;
-  }, {}) || {};
-  
-  const sessionId = cookies.samlAuthSessionId;
-  
-  if (!sessionId) {
-    return res.json({ authenticated: false });
-  }
-  
-  const session = getSession(sessionId);
-  
-  if (!session) {
-    return res.json({ authenticated: false });
-  }
-  
-  // In a real implementation, you would check if the user completed the SAML flow
-  // For this example, we'll simulate success after a delay
-  if (session.created && (new Date() - session.created > 10000)) {
-    updateSession(sessionId, {
-      authenticated: true,
-      username: 'saml_user@example.com',
-      token: 'saml_authenticated_token'
-    });
-  }
-  
-  return res.json({
-    authenticated: session.authenticated,
-    username: session.username,
-    session: session.authenticated ? { id: session.id } : null
-  });
-});
-
-// Copy over all routes from app.js
-// API to fetch CI metrics - focused on PAT authentication
-app.post('/api/fetch-ci-metrics', appConfig.fetchCIMetrics);
-
-// API endpoint to fetch namespaces - focused on PAT authentication
-app.post('/api/fetch-namespaces', appConfig.fetchNamespaces);
-
+// Export for Vercel
 module.exports = app;
