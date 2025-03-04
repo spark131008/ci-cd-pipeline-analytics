@@ -1,23 +1,43 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/public/$1"
-    }
-  ]
-}
+    "version": 2,
+    "builds": [
+      {
+        "src": "api/**/*.js",
+        "use": "@vercel/node"
+      },
+      {
+        "src": "public/**",
+        "use": "@vercel/static"
+      }
+    ],
+    "routes": [
+      {
+        "src": "/api/gitlab/fetch-ci-metrics",
+        "dest": "/api/gitlab/fetch-ci-metrics.js"
+      },
+      {
+        "src": "/api/fetch-namespaces",
+        "dest": "/api/fetch-namespaces.js"
+      },
+      {
+        "src": "/api/auth/saml-auth-init",
+        "dest": "/api/auth/saml-auth-init.js"
+      },
+      {
+        "src": "/api/auth/saml-auth-status",
+        "dest": "/api/auth/saml-auth-status.js"
+      },
+      {
+        "src": "/api/test",
+        "dest": "/api/test.js"
+      },
+      {
+        "src": "/api/(.*)",
+        "dest": "/api/$1.js"
+      },
+      {
+        "src": "/(.*)",
+        "dest": "/public/$1"
+      }
+    ]
+  }

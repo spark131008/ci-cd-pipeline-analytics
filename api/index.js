@@ -65,10 +65,10 @@ app.get('/', (req, res) => {
 });
 
 // Add API routes with proper HTTP methods
-app.post('/api/fetch-ci-metrics', require('./gitlab/fetch-ci-metrics'));
-app.post('/api/fetch-namespaces', require('./fetch-namespaces'));
-app.get('/api/saml-auth-init', require('./auth/saml-auth-init'));
-app.get('/api/saml-auth-status', require('./auth/saml-auth-status'));
+app.post('/api/fetch-ci-metrics', require('./api/gitlab/fetch-ci-metrics'));
+app.post('/api/fetch-namespaces', require('./api/fetch-namespaces'));
+app.get('/api/saml-auth-init', require('./api/auth/saml-auth-init'));
+app.get('/api/saml-auth-status', require('./api/auth/saml-auth-status'));
 
 // Add a simple test endpoint to verify API functionality
 app.get('/api/test', (req, res) => {

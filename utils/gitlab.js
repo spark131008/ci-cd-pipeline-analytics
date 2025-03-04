@@ -31,40 +31,51 @@ function calculateDateRange(timeRange) {
 
 // Function to fetch projects from GitLab
 async function fetchProjects(gitlabUrl, token, namespace = '', tokenType = 'personal') {
-  try {
-    let params = {
-      membership: true,
-      per_page: 100
-    };
-    
-    // If namespace is provided, add it to the query
-    if (namespace) {
-      params.namespace = namespace;
+    try {
+      let params = {
+        membership: true,
+        per_page: 100
+      };
+      
+      // If namespace is provided, add it to the query
+      if (namespace && typeof namespace === 'string') {
+        params.namespace = namespace;
+      }
+      
+      console.log(`Making request to: ${gitlabUrl}/api/v4/projects with params:`, params);
+      
+      // Ensure token is a string
+      if (typeof token !== 'string') {
+        console.error("Token is not a string:", typeof token);
+        throw new Error("Invalid token format");
+      }
+      
+      const headers = {};
+      if (tokenType === 'oauth') {
+        headers['Authorization'] = `Bearer ${token}`;
+      } else {
+        headers['PRIVATE-TOKEN'] = token;
+      }
+      
+      console.log("Request headers:", JSON.stringify(headers).replace(token, "****")); // Hide actual token
+      
+      const response = await axios.get(`${gitlabUrl}/api/v4/projects`, {
+        headers,
+        params
+      });
+      
+      // Make sure we're returning an array
+      if (!Array.isArray(response.data)) {
+        console.log('Projects response is not an array:', response.data);
+        return Array.isArray(response.data.projects) ? response.data.projects : [];
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      throw error;
     }
-    
-    console.log(`Making request to: ${gitlabUrl}/api/v4/projects with params:`, params);
-    
-    const headers = tokenType === 'oauth' 
-      ? { 'Authorization': `Bearer ${token}` }
-      : { 'PRIVATE-TOKEN': token };
-    
-    const response = await axios.get(`${gitlabUrl}/api/v4/projects`, {
-      headers,
-      params
-    });
-    
-    // Make sure we're returning an array
-    if (!Array.isArray(response.data)) {
-      console.log('Projects response is not an array:', response.data);
-      return Array.isArray(response.data.projects) ? response.data.projects : [];
-    }
-    
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching projects:', error);
-    throw error;
   }
-}
 
 // Function to fetch pipelines for multiple projects
 async function fetchPipelinesForProjects(gitlabUrl, token, projects, startDate, endDate) {
