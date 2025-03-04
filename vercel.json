@@ -39,5 +39,10 @@
         "src": "/(.*)",
         "dest": "/public/$1"
       }
-    ]
+    ],
+    "functions": {
+      "api/gitlab/fetch-ci-metrics.js": {
+        "maxDuration": 60
+      }
+    }
   }
