@@ -21,8 +21,21 @@ const appConfig = require('../app');
 // Create a new express app for Vercel
 const app = express();
 
-// Middleware
-app.use(cors());
+// Expanded CORS configuration
+app.use(cors({
+  origin: '*', // During development; restrict this in production
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// Add Content Security Policy middleware to relax restrictions during development
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;");
+  next();
+});
+
+// Standard middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -51,11 +64,16 @@ app.get('/', (req, res) => {
   }
 });
 
-// Add API routes
-app.use('/api/fetch-ci-metrics', require('./gitlab/fetch-ci-metrics'));
-app.use('/api/fetch-namespaces', require('./fetch-namespaces'));
-app.use('/api/saml-auth-init', require('./auth/saml-auth-init'));
-app.use('/api/saml-auth-status', require('./auth/saml-auth-status'));
+// Add API routes with proper HTTP methods
+app.post('/api/fetch-ci-metrics', require('./gitlab/fetch-ci-metrics'));
+app.post('/api/fetch-namespaces', require('./fetch-namespaces'));
+app.get('/api/saml-auth-init', require('./auth/saml-auth-init'));
+app.get('/api/saml-auth-status', require('./auth/saml-auth-status'));
+
+// Add a simple test endpoint to verify API functionality
+app.get('/api/test', (req, res) => {
+  res.status(200).json({ message: 'API is working', timestamp: new Date().toISOString() });
+});
 
 // Handle any other route
 app.get('*', (req, res) => {
