@@ -2,11 +2,13 @@
   "name": "gitlab-ci-analytics",
   "version": "1.0.0",
   "description": "Web application to analyze GitLab CI build metrics",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js",
-    "test": "jest"
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "dev:vercel": "vercel dev",
+    "test": "jest",
+    "legacy": "node app.js"
   },
   "dependencies": {
     "axios": "^1.6.2",
