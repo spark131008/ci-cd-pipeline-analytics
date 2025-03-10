@@ -279,7 +279,7 @@
           }
           
           // FIXED: Using the correct endpoint and properly forming the request
-          const response = await fetch('/api/fetch-namespaces', {
+          const response = await fetch('/api/gitlab/fetch-namespaces', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'

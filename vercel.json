@@ -1,38 +1,14 @@
 {
-    "version": 2,
-    "functions": {
-      "api/**/*.js": {
-        "maxDuration": 60
-      }
-    },
-    "routes": [
-      {
-        "src": "/api/gitlab/fetch-ci-metrics",
-        "dest": "/api/gitlab/fetch-ci-metrics.js"
-      },
-      {
-        "src": "/api/fetch-namespaces",
-        "dest": "/api/fetch-namespaces.js"
-      },
-      {
-        "src": "/api/auth/saml-auth-init",
-        "dest": "/api/auth/saml-auth-init.js"
-      },
-      {
-        "src": "/api/auth/saml-auth-status",
-        "dest": "/api/auth/saml-auth-status.js"
-      },
-      {
-        "src": "/api/test",
-        "dest": "/api/test.js"
-      },
-      {
-        "src": "/api/(.*)",
-        "dest": "/api/$1.js"
-      },
-      {
-        "src": "/(.*)",
-        "dest": "/public/$1"
-      }
-    ]
-  }
+  "version": 2,
+  "functions": {
+    "api/server.js": {
+      "maxDuration": 60
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/server.js"
+    }
+  ]
+}

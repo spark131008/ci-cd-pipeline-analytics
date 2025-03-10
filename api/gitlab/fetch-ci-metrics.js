@@ -15,7 +15,12 @@ module.exports = async (req, res) => {
   }
 
   try {
-    console.log("CI metrics endpoint called with:", req.body);
+    // Create a safe copy of the request body with masked sensitive data
+    const sanitizedBody = {...req.body};
+    if (sanitizedBody.personalAccessToken) {
+      sanitizedBody.personalAccessToken = '[MASKED]';
+    }
+    console.log("CI metrics endpoint called with:", sanitizedBody);
     let { gitlabUrl, authMethod, personalAccessToken, timeRange, namespace } = req.body;
 
       // Validate parameters
