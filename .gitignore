@@ -6,3 +6,7 @@
 /node_modules
 /.pnp
 .pnp.js
+
+# IDE
+.vscode
+.idea

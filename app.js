@@ -137,8 +137,20 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
 
-// API to fetch CI build data
-app.post('/api/fetch-ci-metrics', async (req, res) => {
+// Import API handlers to maintain compatibility with npm start
+const fetchCIMetricsHandler = require('./api/gitlab/fetch-ci-metrics');
+const fetchNamespacesHandler = require('./api/fetch-namespaces');
+const samlAuthInitHandler = require('./api/auth/saml-auth-init');
+const samlAuthStatusHandler = require('./api/auth/saml-auth-status');
+
+// Register API routes for Express app
+app.post('/api/fetch-ci-metrics', fetchCIMetricsHandler);
+app.post('/api/fetch-namespaces', fetchNamespacesHandler);
+app.get('/api/saml-auth-init', samlAuthInitHandler);
+app.get('/api/saml-auth-status', samlAuthStatusHandler);
+
+// Legacy API to fetch CI build data (keeping for reference but making it not conflict)
+app.post('/api/legacy/fetch-ci-metrics', async (req, res) => {
   try {
     let { gitlabUrl, authMethod, personalAccessToken, samlSessionId, timeRange, namespace } = req.body;
 
@@ -237,8 +249,8 @@ app.post('/api/fetch-ci-metrics', async (req, res) => {
   }
 });
 
-// API endpoint to fetch namespaces
-app.post('/api/fetch-namespaces', async (req, res) => {
+// Legacy API endpoint to fetch namespaces (keeping for reference but making it not conflict)
+app.post('/api/legacy/fetch-namespaces', async (req, res) => {
   try {
     let { gitlabUrl, authMethod, personalAccessToken, samlSessionId } = req.body;
     
