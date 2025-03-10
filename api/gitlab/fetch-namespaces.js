@@ -11,7 +11,12 @@ module.exports = async (req, res) => {
   }
 
   try {
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    // Create a sanitized copy of the request body for logging
+    const sanitizedBody = {...req.body};
+    if (sanitizedBody.personalAccessToken) {
+      sanitizedBody.personalAccessToken = '[MASKED]';
+    }
+    console.log('Request body:', JSON.stringify(sanitizedBody, null, 2));
     
     let { gitlabUrl, authMethod, personalAccessToken } = req.body;
     

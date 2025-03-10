@@ -11,8 +11,8 @@
         "dest": "/api/gitlab/fetch-ci-metrics.js"
       },
       {
-        "src": "/api/fetch-namespaces",
-        "dest": "/api/fetch-namespaces.js"
+        "src": "/api/gitlab/fetch-namespaces",
+        "dest": "/api/gitlab/fetch-namespaces.js"
       },
       {
         "src": "/api/auth/saml-auth-init",

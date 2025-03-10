@@ -57,7 +57,15 @@ async function fetchProjects(gitlabUrl, token, namespace = '', tokenType = 'pers
         headers['PRIVATE-TOKEN'] = token;
       }
       
-      console.log("Request headers:", JSON.stringify(headers).replace(token, "****")); // Hide actual token
+      // Create sanitized headers for logging to completely hide token
+      const sanitizedHeaders = {};
+      if (headers['Authorization']) {
+        sanitizedHeaders['Authorization'] = 'Bearer [MASKED]';
+      }
+      if (headers['PRIVATE-TOKEN']) {
+        sanitizedHeaders['PRIVATE-TOKEN'] = '[MASKED]';
+      }
+      console.log("Request headers:", JSON.stringify(sanitizedHeaders));
       
       const response = await axios.get(`${gitlabUrl}/api/v4/projects`, {
         headers,
@@ -108,18 +116,18 @@ async function fetchPipelinesForProject(gitlabUrl, token, projectId, startDate, 
     console.log(`Fetching pipelines for project ${projectId}`);
     
     // First, get the project details to get the name
+    const headers = { 'PRIVATE-TOKEN': token };
+    // Log sanitized headers for debugging
+    console.log(`Fetching project details for ${projectId} with authentication`);
+    
     const projectResponse = await axios.get(`${gitlabUrl}/api/v4/projects/${projectId}`, {
-      headers: {
-        'PRIVATE-TOKEN': token
-      }
+      headers
     });
     
     const projectName = projectResponse.data.name || `Project ${projectId}`;
     
     const response = await axios.get(`${gitlabUrl}/api/v4/projects/${projectId}/pipelines`, {
-      headers: {
-        'PRIVATE-TOKEN': token
-      },
+      headers,
       params: {
         updated_after: startDate,
         updated_before: endDate,
@@ -155,17 +163,16 @@ async function fetchPipelinesForProject(gitlabUrl, token, projectId, startDate, 
 // Function to fetch details for a single pipeline
 async function fetchPipelineDetails(gitlabUrl, token, projectId, pipelineId) {
   try {
+    // Create headers once for all requests
+    const headers = { 'PRIVATE-TOKEN': token };
+    
     const response = await axios.get(`${gitlabUrl}/api/v4/projects/${projectId}/pipelines/${pipelineId}`, {
-      headers: {
-        'PRIVATE-TOKEN': token
-      }
+      headers
     });
     
     // Fetch the jobs for this pipeline to calculate total CI minutes
     const jobsResponse = await axios.get(`${gitlabUrl}/api/v4/projects/${projectId}/pipelines/${pipelineId}/jobs`, {
-      headers: {
-        'PRIVATE-TOKEN': token
-      }
+      headers
     });
     
     // Calculate the total duration of all jobs

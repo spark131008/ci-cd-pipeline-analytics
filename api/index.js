@@ -66,7 +66,7 @@ app.get('/', (req, res) => {
 
 // Add API routes with proper HTTP methods
 app.post('/api/fetch-ci-metrics', require('./gitlab/fetch-ci-metrics'));
-app.post('/api/fetch-namespaces', require('./fetch-namespaces'));
+app.post('/api/gitlab/fetch-namespaces', require('./gitlab/fetch-namespaces'));
 app.get('/api/saml-auth-init', require('./auth/saml-auth-init'));
 app.get('/api/saml-auth-status', require('./auth/saml-auth-status'));
 
