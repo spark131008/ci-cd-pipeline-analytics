@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container } from 'react-bootstrap';
+import { Container, Spinner } from 'react-bootstrap';
 import GitLabForm from './components/GitLabForm';
 import ResultsSection from './components/ResultsSection';
 import AlertMessages from './components/AlertMessages';
@@ -32,7 +32,7 @@ const App = () => {
       setMetrics(data);
       setTimeRange(formData.timeRange);
     } catch (error) {
-      setAlerts([{ type: 'danger', message: `Error: ${error.message}` }]);
+      setAlerts([{ type: 'danger', message: `Error: ${error.message}`, id: Date.now() }]);
       console.error('Error:', error);
     } finally {
       setLoading(false);
@@ -50,6 +50,7 @@ const App = () => {
   return (
     <Container>
       <h1 className="mb-4">GitLab CI Analytics</h1>
+      <p className="text-muted">Development Mode - React + Express</p>
       
       <GitLabForm 
         onSubmit={handleFetchMetrics} 
@@ -63,9 +64,9 @@ const App = () => {
       
       {loading && (
         <div className="d-flex justify-content-center my-5">
-          <div className="spinner-border text-primary" role="status">
+          <Spinner animation="border" role="status" variant="primary">
             <span className="visually-hidden">Loading...</span>
-          </div>
+          </Spinner>
         </div>
       )}
       

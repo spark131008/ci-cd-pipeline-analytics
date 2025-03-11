@@ -10,3 +10,7 @@
 # IDE
 .vscode
 .idea
+
+# Build output
+dist/
+build/
