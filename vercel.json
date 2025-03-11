@@ -9,6 +9,12 @@
     {
       "src": "/api/(.*)",
       "dest": "api/server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
-  ]
+  ],
+  "devCommand": "npm run dev",
+  "buildCommand": "npm run build"
 }

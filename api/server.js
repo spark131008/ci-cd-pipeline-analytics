@@ -23,7 +23,10 @@ const setupApp = () => {
   app.use(cors());
   app.use(bodyParser.json());
   app.use(bodyParser.urlencoded({ extended: true }));
+  
+  // Serve static files from both public and dist directories
   app.use(express.static('public'));
+  app.use(express.static('dist'));
 
   // Session Configuration
   let sessionConfig = {
@@ -65,7 +68,13 @@ const setupApp = () => {
 
   // Routes
   app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public', 'index.html'));
+    // In development, the frontend is served by Vite
+    // In production, serve the built index.html
+    if (process.env.NODE_ENV === 'production') {
+      res.sendFile(path.join(__dirname, '../dist', 'index.html'));
+    } else {
+      res.sendFile(path.join(__dirname, '..', 'index.html'));
+    }
   });
 
   // Import API handlers
@@ -86,9 +95,13 @@ const setupApp = () => {
     fetchNamespacesHandler: typeof fetchNamespacesHandler
   });
 
-  // Handle unknown routes
+  // Handle unknown routes - for SPA client-side routing
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public', 'index.html'));
+    if (process.env.NODE_ENV === 'production') {
+      res.sendFile(path.join(__dirname, '../dist', 'index.html'));
+    } else {
+      res.sendFile(path.join(__dirname, '..', 'index.html'));
+    }
   });
 
   return app;
