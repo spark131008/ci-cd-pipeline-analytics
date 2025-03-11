@@ -1,0 +1,40 @@
+body {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.chart-container {
+  position: relative;
+  height: 300px;
+  margin-bottom: 2rem;
+}
+
+.loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.card {
+  margin-bottom: 1.5rem;
+}
+
+.metrics-summary {
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.hidden {
+  display: none;
+}
+
+.alert {
+  margin-top: 1rem;
+}
