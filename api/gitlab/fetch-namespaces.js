@@ -20,10 +20,6 @@ module.exports = async (req, res) => {
     
     let { gitlabUrl, authMethod, personalAccessToken } = req.body;
     
-    console.log('GitLab URL:', gitlabUrl);
-    console.log('Auth method:', authMethod);
-    console.log('PAT provided:', personalAccessToken ? 'Yes (masked)' : 'No');
-    
     // Focus only on PAT auth for now
     if (authMethod !== 'pat') {
       console.log('Auth method not supported:', authMethod);
