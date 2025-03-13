@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Health Check</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #333;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .warning {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>GitLab CI Analytics Health Check</h1>
+  
+  <div class="status success">
+    <h2>Static Content Available</h2>
+    <p>This page is being served correctly from the static build.</p>
+  </div>
+  
+  <h2>Deployment Information</h2>
+  <pre id="info">Loading deployment information...</pre>
+  
+  <script>
+    // Check API connection
+    fetch('/api')
+      .then(response => response.json())
+      .then(data => {
+        const infoElement = document.getElementById('info');
+        infoElement.textContent = JSON.stringify(data, null, 2);
+        
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'status success';
+        statusDiv.innerHTML = `
+          <h2>API Connection Successful</h2>
+          <p>Successfully connected to the API endpoint.</p>
+        `;
+        document.body.appendChild(statusDiv);
+      })
+      .catch(error => {
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'status error';
+        statusDiv.innerHTML = `
+          <h2>API Connection Failed</h2>
+          <p>Error: ${error.message}</p>
+          <p>Make sure your API is running and accessible.</p>
+        `;
+        document.body.appendChild(statusDiv);
+      });
+      
+    // Check environment
+    fetch('/api/env-check')
+      .then(response => response.json())
+      .then(data => {
+        const envDiv = document.createElement('div');
+        envDiv.className = 'status success';
+        envDiv.innerHTML = `
+          <h2>Environment Variables Check</h2>
+          <p>Environment: ${data.environment}</p>
+          <p>Vercel: ${data.isVercel ? 'Yes' : 'No'}</p>
+          <pre>${JSON.stringify(data.environmentVariables, null, 2)}</pre>
+        `;
+        document.body.appendChild(envDiv);
+      })
+      .catch(error => {
+        const envDiv = document.createElement('div');
+        envDiv.className = 'status warning';
+        envDiv.innerHTML = `
+          <h2>Environment Check Failed</h2>
+          <p>Error: ${error.message}</p>
+        `;
+        document.body.appendChild(envDiv);
+      });
+
+    // Check for main app JS
+    fetch('/assets/index-C_Pntyvw.js')
+      .then(response => {
+        const jsStatusDiv = document.createElement('div');
+        if (response.ok) {
+          jsStatusDiv.className = 'status success';
+          jsStatusDiv.innerHTML = `
+            <h2>Main JavaScript Bundle Available</h2>
+            <p>Successfully found the main JavaScript bundle.</p>
+          `;
+        } else {
+          jsStatusDiv.className = 'status error';
+          jsStatusDiv.innerHTML = `
+            <h2>Main JavaScript Bundle Missing</h2>
+            <p>Status: ${response.status}</p>
+            <p>This could indicate an issue with the build process or bundle naming.</p>
+          `;
+        }
+        document.body.appendChild(jsStatusDiv);
+      })
+      .catch(error => {
+        const jsStatusDiv = document.createElement('div');
+        jsStatusDiv.className = 'status error';
+        jsStatusDiv.innerHTML = `
+          <h2>JavaScript Bundle Check Failed</h2>
+          <p>Error: ${error.message}</p>
+          <p>This could indicate the main JavaScript bundle is missing or inaccessible.</p>
+        `;
+        document.body.appendChild(jsStatusDiv);
+      });
+  </script>
+</body>
+</html>

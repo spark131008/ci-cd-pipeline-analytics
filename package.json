@@ -9,7 +9,8 @@
     "dev:frontend": "vite",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:vercel": "NODE_NO_WARNINGS=1 vercel dev --listen 4000",
-    "build": "vite build",
+    "build": "node build.js",
+    "build:vite": "vite build",
     "test": "jest",
     "test:backend": "jest tests/backend",
     "test:frontend": "jest tests/frontend"

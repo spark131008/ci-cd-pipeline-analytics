@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Not Found - GitLab CI Analytics</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+      color: #333;
+    }
+    h1 {
+      color: #e74c3c;
+    }
+    .info {
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    code {
+      background-color: #f1f1f1;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-family: Monaco, monospace;
+    }
+    .links {
+      margin-top: 20px;
+    }
+    .links a {
+      display: inline-block;
+      margin-right: 15px;
+      color: #3498db;
+      text-decoration: none;
+    }
+    .links a:hover {
+      text-decoration: underline;
+    }
+    .debug {
+      margin-top: 30px;
+      border-top: 1px solid #ddd;
+      padding-top: 20px;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>404 - Page Not Found</h1>
+  <p>The page you are looking for does not exist or has been moved.</p>
+  
+  <div class="info">
+    <h2>Debugging Information</h2>
+    <p><strong>Requested URL:</strong> <code id="requested-url">Loading...</code></p>
+    <p><strong>User Agent:</strong> <code id="user-agent">Loading...</code></p>
+    <p><strong>Time:</strong> <span id="current-time">Loading...</span></p>
+  </div>
+  
+  <div class="links">
+    <h3>Try these links instead:</h3>
+    <a href="/">Home Page</a>
+    <a href="/health.html">Health Check</a>
+    <a href="/api">API Status</a>
+  </div>
+  
+  <div class="debug">
+    <h3>Technical Debugging</h3>
+    <p>This 404 page indicates that the requested resource was not found. This could be due to:</p>
+    <ul>
+      <li>A misconfiguration in Vercel routing</li>
+      <li>Missing static assets from the build</li>
+      <li>Issues with client-side routing</li>
+    </ul>
+    
+    <h4>Available Static Assets:</h4>
+    <p>If static assets are being served correctly, you should be able to access:</p>
+    <ul id="assets-list">
+      <li><a href="/index.html">/index.html</a> - Main HTML file</li>
+      <li><a href="/health.html">/health.html</a> - Health check page</li>
+      <li>JavaScript bundles in <code>/assets/</code> directory</li>
+    </ul>
+  </div>
+  
+  <script>
+    // Update debugging information
+    document.getElementById('requested-url').textContent = window.location.href;
+    document.getElementById('user-agent').textContent = navigator.userAgent;
+    document.getElementById('current-time').textContent = new Date().toLocaleString();
+    
+    // Check if the assets directory exists
+    fetch('/assets')
+      .then(response => {
+        const listItem = document.createElement('li');
+        if (response.ok) {
+          listItem.innerHTML = '✅ <code>/assets/</code> directory is accessible';
+        } else {
+          listItem.innerHTML = '❌ <code>/assets/</code> directory returned status ' + response.status;
+        }
+        document.getElementById('assets-list').appendChild(listItem);
+      })
+      .catch(error => {
+        const listItem = document.createElement('li');
+        listItem.innerHTML = '❌ Error accessing <code>/assets/</code> directory: ' + error.message;
+        document.getElementById('assets-list').appendChild(listItem);
+      });
+  </script>
+</body>
+</html>

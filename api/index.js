@@ -4,6 +4,8 @@ const serverless = require('serverless-http');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
+const path = require('path');
+const fs = require('fs');
 
 // Load environment variables
 dotenv.config();
@@ -37,6 +39,51 @@ app.get('/api', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Debug endpoint to check the build files
+app.get('/api/build-info', (req, res) => {
+  const buildInfo = {
+    api_status: 'running',
+    node_version: process.version,
+    environment: process.env.NODE_ENV || 'unknown',
+    vercel: !!process.env.VERCEL,
+    timestamp: new Date().toISOString(),
+    dist_exists: false,
+    files: []
+  };
+  
+  // Check if we can access the dist directory
+  const distPath = path.join(__dirname, '../dist');
+  
+  try {
+    if (fs.existsSync(distPath)) {
+      buildInfo.dist_exists = true;
+      
+      // List files in the dist directory
+      const files = fs.readdirSync(distPath);
+      buildInfo.files = files.map(file => {
+        const filePath = path.join(distPath, file);
+        const stats = fs.statSync(filePath);
+        return {
+          name: file,
+          size: stats.size,
+          is_directory: stats.isDirectory(),
+          modified: stats.mtime
+        };
+      });
+    }
+  } catch (error) {
+    buildInfo.error = {
+      message: error.message,
+      stack: error.stack
+    };
+  }
+  
+  res.status(200).json(buildInfo);
+});
+
+// Fallback route for serving static files
+app.use('/api/static', express.static(path.join(__dirname, '../dist')));
 
 // Export the serverless handler
 module.exports = serverless(app);
