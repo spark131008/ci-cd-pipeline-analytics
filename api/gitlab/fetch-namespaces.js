@@ -3,7 +3,6 @@ const axios = require('axios');
 module.exports = async (req, res) => {
   console.log('---- FETCH NAMESPACES API CALLED ----');
   console.log('Request method:', req.method);
-  console.log('Request headers:', JSON.stringify(req.headers, null, 2));
   
   if (req.method !== 'POST') {
     console.log('Method not allowed:', req.method);
@@ -29,7 +28,6 @@ module.exports = async (req, res) => {
     }
     
     let token = personalAccessToken;
-    let tokenType = 'personal';
     
     if (!gitlabUrl || !token) {
       console.log('Missing required parameters:', {
@@ -40,54 +38,53 @@ module.exports = async (req, res) => {
     }
     
     try {
-      const cleanGitlabUrl = new URL(gitlabUrl).origin;
+      // Clean up the URL
+      const cleanGitlabUrl = gitlabUrl.trim().replace(/\/$/, '');
+      if (!cleanGitlabUrl.startsWith('http')) {
+        return res.status(400).json({ error: 'GitLab URL must start with http:// or https://' });
+      }
+      
       console.log('Cleaned GitLab URL:', cleanGitlabUrl);
       
-      // Fetch user's groups
+      // Fetch user's groups with timeout and optimize the request
       const headers = { 'PRIVATE-TOKEN': token };
       const requestUrl = `${cleanGitlabUrl}/api/v4/groups`;
       const requestParams = {
         min_access_level: 20, // Reporter level or higher
-        per_page: 100
+        per_page: 20,         // Limit to fewer groups to prevent timeout
+        page: 1,
+        simple: true          // Simple version of groups for faster response
       };
       
       console.log('Sending request to:', requestUrl);
-      console.log('With params:', JSON.stringify(requestParams));
-      console.log('With headers:', JSON.stringify({ 'PRIVATE-TOKEN': 'MASKED' }));
       
-      const groupsResponse = await axios.get(requestUrl, {
+      // Set a shorter timeout for the request
+      const axiosResponse = await axios.get(requestUrl, {
         headers,
-        params: requestParams
+        params: requestParams,
+        timeout: 5000 // 5 second timeout
       });
       
-      console.log('Response status:', groupsResponse.status);
-      console.log('Response headers:', JSON.stringify(groupsResponse.headers, null, 2));
-      console.log('Response data type:', typeof groupsResponse.data);
-      console.log('Response is array:', Array.isArray(groupsResponse.data));
+      console.log('Response status:', axiosResponse.status);
       
-      if (Array.isArray(groupsResponse.data)) {
-        console.log('Number of groups found:', groupsResponse.data.length);
-        console.log('First group (if any):', 
-          groupsResponse.data.length > 0 ? 
-          JSON.stringify(groupsResponse.data[0], null, 2) : 'None');
+      if (Array.isArray(axiosResponse.data)) {
+        console.log('Number of groups found:', axiosResponse.data.length);
       } else {
-        console.log('Response data preview:', JSON.stringify(groupsResponse.data).substring(0, 200) + '...');
+        console.log('Response data is not an array');
       }
       
-      // Skip user namespace and just return groups
-      const groups = Array.isArray(groupsResponse.data) ? groupsResponse.data : [];
+      // Convert to our format (with minimal data)
+      const namespaces = Array.isArray(axiosResponse.data) 
+        ? axiosResponse.data.map(group => ({ 
+            id: group.id, 
+            name: group.name, 
+            path: group.path,
+            kind: 'group',
+            full_path: group.full_path
+          }))
+        : [];
       
-      // Convert to our format
-      const namespaces = groups.map(group => ({ 
-        id: group.id, 
-        name: group.name, 
-        path: group.path,
-        kind: 'group',
-        full_path: group.full_path
-      }));
-      
-      console.log('Formatted namespaces:', JSON.stringify(namespaces, null, 2));
-      console.log('Sending successful response');
+      console.log('Formatted namespaces count:', namespaces.length);
       
       res.json(namespaces);
     } catch (error) {
@@ -99,34 +96,40 @@ module.exports = async (req, res) => {
         // The request was made and the server responded with a status code
         // that falls out of the range of 2xx
         console.error('Error status:', error.response.status);
-        console.error('Error headers:', JSON.stringify(error.response.headers, null, 2));
         console.error('Error data:', JSON.stringify(error.response.data, null, 2));
+        
+        // Return specific GitLab API errors
+        return res.status(error.response.status).json({ 
+          error: 'GitLab API error', 
+          details: error.response.data?.message || error.response.data,
+          status: error.response.status
+        });
       } else if (error.request) {
-        // The request was made but no response was received
-        console.error('No response received. Request details:', error.request);
+        // Handle timeouts and connection errors
+        const errorMessage = error.code === 'ECONNABORTED' 
+          ? 'Connection timeout when connecting to GitLab API'
+          : 'Failed to connect to GitLab API';
+          
+        return res.status(504).json({ 
+          error: errorMessage,
+          code: error.code
+        });
       } else {
         // Something happened in setting up the request that triggered an Error
-        console.error('Error details:', error);
+        return res.status(500).json({ 
+          error: 'Error setting up GitLab API request', 
+          details: error.message
+        });
       }
-      console.error('Error config:', JSON.stringify(error.config, null, 2));
-      
-      res.status(500).json({ 
-        error: 'Failed to fetch groups', 
-        details: error.response?.data || error.message,
-        code: error.code,
-        isAxiosError: error.isAxiosError || false
-      });
     }
   } catch (error) {
     console.error('General error in fetch-namespaces handler:');
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
     
     res.status(500).json({ 
-      error: 'Failed to fetch namespaces',
-      details: error.message,
-      stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+      error: 'Server error processing request',
+      details: error.message
     });
   }
 };

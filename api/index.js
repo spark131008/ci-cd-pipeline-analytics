@@ -14,7 +14,11 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*', // Allow all origins for testing
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -23,12 +27,14 @@ const fetchCIMetricsHandler = require('./gitlab/fetch-ci-metrics');
 const fetchNamespacesHandler = require('./gitlab/fetch-namespaces');
 const samlAuthInitHandler = require('./auth/saml-auth-init');
 const samlAuthStatusHandler = require('./auth/saml-auth-status');
+const testGitLabApiHandler = require('./gitlab/test-api');
 
 // Register API routes
 app.post('/api/gitlab/fetch-ci-metrics', fetchCIMetricsHandler);
 app.post('/api/gitlab/fetch-namespaces', fetchNamespacesHandler);
 app.get('/api/saml-auth-init', samlAuthInitHandler);
 app.get('/api/saml-auth-status', samlAuthStatusHandler);
+app.get('/api/gitlab/test-api', testGitLabApiHandler);
 
 // Debug route to confirm API is working
 app.get('/api', (req, res) => {
@@ -36,7 +42,8 @@ app.get('/api', (req, res) => {
     status: 'ok', 
     message: 'GitLab CI Analytics API is running',
     environment: process.env.VERCEL ? 'Vercel' : 'Development',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    function_timeout: process.env.VERCEL ? '15 seconds' : 'No limit'
   });
 });
 
@@ -80,6 +87,15 @@ app.get('/api/build-info', (req, res) => {
   }
   
   res.status(200).json(buildInfo);
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    time: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // Fallback route for serving static files
