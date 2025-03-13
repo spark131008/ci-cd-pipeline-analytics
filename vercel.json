@@ -1,24 +1,13 @@
 {
   "version": 2,
-  "functions": {
-    "api/server.js": {
-      "maxDuration": 60
-    }
-  },
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "api/server.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/dist/index.html"
-    }
-  ],
   "builds": [
     { "src": "api/server.js", "use": "@vercel/node" },
     { "src": "dist/**", "use": "@vercel/static" }
   ],
-  "devCommand": "npm run dev",
-  "buildCommand": "npm run build"
+  "routes": [
+    { "src": "/api/(.*)", "dest": "api/server.js" },
+    { "src": "/(.*)", "dest": "/dist/index.html" }
+  ],
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev"
 }

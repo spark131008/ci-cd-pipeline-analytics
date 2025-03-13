@@ -82,12 +82,15 @@ const setupApp = () => {
   const fetchNamespacesHandler = require('./gitlab/fetch-namespaces');
   const samlAuthInitHandler = require('./auth/saml-auth-init');
   const samlAuthStatusHandler = require('./auth/saml-auth-status');
+  const testApi = require("./test");
+
 
   // Register API routes
   app.post('/api/gitlab/fetch-ci-metrics', fetchCIMetricsHandler);
   app.post('/api/gitlab/fetch-namespaces', fetchNamespacesHandler);
   app.get('/api/saml-auth-init', samlAuthInitHandler);
   app.get('/api/saml-auth-status', samlAuthStatusHandler);
+  app.get("/api/test", testApi);
 
   // Debug log
   console.log('Handlers loaded:', {
