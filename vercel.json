@@ -12,8 +12,12 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/dist/index.html"
     }
+  ],
+  "builds": [
+    { "src": "api/server.js", "use": "@vercel/node" },
+    { "src": "dist/**", "use": "@vercel/static" }
   ],
   "devCommand": "npm run dev",
   "buildCommand": "npm run build"
