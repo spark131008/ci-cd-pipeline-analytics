@@ -70,7 +70,10 @@ const setupApp = () => {
   app.get('/', (req, res) => {
     // In development, the frontend is served by Vite
     // In production, serve the built index.html
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.VERCEL) {
+      // In Vercel environment, redirects are handled by vercel.json
+      res.status(200).send('API server is running');
+    } else if (process.env.NODE_ENV === 'production') {
       res.sendFile(path.join(__dirname, '../dist', 'index.html'));
     } else {
       res.sendFile(path.join(__dirname, '..', 'index.html'));
@@ -97,7 +100,10 @@ const setupApp = () => {
 
   // Handle unknown routes - for SPA client-side routing
   app.get('*', (req, res) => {
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.VERCEL) {
+      // In Vercel, let vercel.json handle routing
+      res.status(404).send('Not found');
+    } else if (process.env.NODE_ENV === 'production') {
       res.sendFile(path.join(__dirname, '../dist', 'index.html'));
     } else {
       res.sendFile(path.join(__dirname, '..', 'index.html'));
@@ -133,13 +139,10 @@ const setupLocalServer = () => {
 };
 
 // Export appropriate objects based on environment
-if (process.env.VERCEL) {
-  const app = setupApp();
-  module.exports = serverless(app);
-} else if (require.main === module) {
+if (require.main === module) {
   // If this file is being run directly, start the server
   setupLocalServer();
 } else {
-  // If this file is being required, export the app
-  module.exports = setupApp();
+  // If this file is being required, export the setup function
+  module.exports = setupApp;
 }
