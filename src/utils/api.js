@@ -4,16 +4,9 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
   : 'http://localhost:3000/api';
 
 // Constants for API Request
-const REQUEST_TIMEOUT = 15000; // 15 seconds
-const MAX_RETRIES = 2;
+const REQUEST_TIMEOUT = 30000; // Increased to 30 seconds
+const MAX_RETRIES = 3;         // Increased to 3 retries
 
-/**
- * Makes a fetch request to the API with appropriate headers and error handling
- * 
- * @param {string} endpoint - API endpoint path (without /api prefix)
- * @param {Object} options - Fetch options (method, body, etc.)
- * @returns {Promise<any>} - API response data
- */
 /**
  * Enhanced API request function with retry logic, improved error handling, and timeout management
  */
@@ -72,8 +65,21 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
     if (contentType && contentType.indexOf('application/json') !== -1) {
       const data = await response.json();
       
+      // Special handling for 206 Partial Content responses
+      if (response.status === 206) {
+        console.log('Received partial content response:', data);
+        
+        // Add flag to indicate partial results to the caller
+        if (data && !data.hasOwnProperty('partialResults')) {
+          data.partialResults = true;
+        }
+        
+        // Still return the data we have
+        return data;
+      }
+      
       if (!response.ok) {
-        throw new Error(data.error || `API Error: ${response.status}`);
+        throw new Error(data.error || data.message || `API Error: ${response.status}`);
       }
       
       return data;
@@ -95,6 +101,9 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
       // Attempt retry for timeout errors
       if (retryCount < MAX_RETRIES) {
         console.log(`Retrying request to ${url} (Attempt ${retryCount + 1} of ${MAX_RETRIES})`);
+        // Add exponential backoff delay
+        const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
         return apiRequest(endpoint, options, retryCount + 1);
       }
       
@@ -105,7 +114,7 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
     if (error.message.includes('network') && retryCount < MAX_RETRIES) {
       console.log(`Network error, retrying request to ${url} (Attempt ${retryCount + 1} of ${MAX_RETRIES})`);
       // Add a small delay before retry
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
       return apiRequest(endpoint, options, retryCount + 1);
     }
     
@@ -116,17 +125,58 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
 
 // GitLab API specific methods
 export const gitlabApi = {
-  fetchNamespaces: (data) => 
-    apiRequest('/gitlab/fetch-namespaces', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  /**
+   * Fetch GitLab namespaces (groups)
+   * @param {Object} data - Request data
+   * @param {boolean} [bypassCache=false] - Whether to bypass cache
+   * @returns {Promise<Array>} Namespaces data
+   */
+  fetchNamespaces: async (data, bypassCache = false) => {
+    try {
+      const response = await apiRequest('/gitlab/fetch-namespaces', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...data,
+          bypassCache
+        }),
+      });
+      
+      // Handle data that comes from the updated API which returns namespaces in a 'namespaces' property
+      if (response && response.namespaces) {
+        // Check if we got partial results and log it
+        if (response.complete === false || response.partialResults) {
+          console.warn('Received partial GitLab namespace results:', response);
+        }
+        
+        return response.namespaces;
+      }
+      
+      // Handle legacy format where response is the namespaces array directly
+      return response;
+    } catch (error) {
+      // Try one more time with bypass cache if we get a timeout
+      if (!bypassCache && error.message && error.message.includes('timeout')) {
+        console.log('Timeout fetching namespaces, retrying with bypass cache');
+        return gitlabApi.fetchNamespaces(data, true);
+      }
+      throw error;
+    }
+  },
   
+  /**
+   * Fetch CI metrics for the selected namespace
+   */
   fetchCIMetrics: (data) => 
     apiRequest('/gitlab/fetch-ci-metrics', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  /**
+   * Test GitLab API connection
+   */
+  testConnection: (gitlabUrl, token) => 
+    apiRequest(`/gitlab/test-api?url=${encodeURIComponent(gitlabUrl)}&token=${encodeURIComponent(token)}`),
 };
 
 // Auth API methods

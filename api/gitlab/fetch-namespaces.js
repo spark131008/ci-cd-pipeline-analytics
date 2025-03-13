@@ -1,252 +1,316 @@
 const axios = require('axios');
 
-// Implementation of fetch with retry logic
-const fetchWithRetry = async (url, config, maxRetries = 3) => {
-  let retries = 0;
-  let lastError;
+// Create an axios instance with default configuration
+const createGitLabClient = (baseURL, token, timeout = 10000) => {
+  return axios.create({
+    baseURL,
+    timeout,
+    headers: { 'PRIVATE-TOKEN': token }
+  });
+};
 
-  while (retries < maxRetries) {
-    try {
-      console.log(`Attempt ${retries + 1}/${maxRetries} for ${url}`);
-      const startTime = Date.now();
-      const response = await axios(url, config);
-      const duration = Date.now() - startTime;
-      console.log(`Request completed in ${duration}ms`);
-      return response;
-    } catch (error) {
-      lastError = error;
-      
-      // If we hit a rate limit, honor the Retry-After header
-      if (error.response && error.response.status === 429) {
-        const retryAfter = parseInt(error.response.headers['retry-after'] || '5', 10);
-        console.log(`Rate limited. Waiting ${retryAfter}s before retry.`);
-        await new Promise(r => setTimeout(r, retryAfter * 1000));
-      } else {
-        // For other errors, use exponential backoff
-        const backoffTime = Math.min(Math.pow(2, retries) * 1000, 5000);
-        console.log(`Request failed. Retrying in ${backoffTime}ms...`);
-        await new Promise(r => setTimeout(r, backoffTime));
-      }
-      
-      retries++;
-      
-      // If we've hit max retries, throw the last error
-      if (retries >= maxRetries) {
-        throw lastError;
-      }
-    }
+// Simple in-memory cache with 10-minute TTL
+const cache = new Map();
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+// Check if URL is accessible with a quick health check
+const checkGitLabAccess = async (client) => {
+  try {
+    const start = Date.now();
+    const response = await client.get('/api/v4/version');
+    const duration = Date.now() - start;
+    
+    console.log(`GitLab version check completed in ${duration}ms`);
+    console.log(`GitLab version: ${response.data.version}`);
+    
+    return {
+      accessible: true,
+      version: response.data.version,
+      responseTime: duration
+    };
+  } catch (error) {
+    console.error('GitLab version check failed:', error.message);
+    return {
+      accessible: false,
+      error: error.message
+    };
   }
-  
-  throw lastError;
 };
 
-// Cache for storing namespaces to avoid repeated requests
-const namespaceCache = {
-  data: null,
-  timestamp: 0,
-  ttl: 5 * 60 * 1000 // 5 minutes in milliseconds
-};
-
+// Faster fetch with parallel requests and early return capability
 module.exports = async (req, res) => {
   console.log('---- FETCH NAMESPACES API CALLED ----');
-  console.log('Request method:', req.method);
-  console.log(`Request timestamp: ${new Date().toISOString()}`);
-  
-  // Record start time for performance tracking
   const startTime = Date.now();
   
+  // Set a timeout to ensure we send at least partial results if available
+  let responseTimeout;
+  let hasResponded = false;
+  const MAX_EXECUTION_TIME = 25000; // 25 seconds max execution time
+  
+  responseTimeout = setTimeout(() => {
+    if (!hasResponded && cache.has('partial_results')) {
+      const partialData = cache.get('partial_results');
+      console.log(`Returning partial results after ${MAX_EXECUTION_TIME}ms (${partialData.length} groups)`);
+      
+      hasResponded = true;
+      res.status(206).json({
+        namespaces: partialData,
+        complete: false,
+        message: 'Partial results returned due to timeout',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, MAX_EXECUTION_TIME);
+  
+  // Ensure we clean up the timeout
+  const cleanupTimeout = () => {
+    if (responseTimeout) {
+      clearTimeout(responseTimeout);
+      responseTimeout = null;
+    }
+  };
+  
+  // Handle initial validation
   if (req.method !== 'POST') {
-    console.log('Method not allowed:', req.method);
+    cleanupTimeout();
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
+  
   try {
-    // Create a sanitized copy of the request body for logging
-    const sanitizedBody = {...req.body};
-    if (sanitizedBody.personalAccessToken) {
-      sanitizedBody.personalAccessToken = '[MASKED]';
-    }
-    console.log('Request body:', JSON.stringify(sanitizedBody, null, 2));
+    const { gitlabUrl, authMethod, personalAccessToken, forceRefresh } = req.body;
     
-    let { gitlabUrl, authMethod, personalAccessToken, bypassCache } = req.body;
-    
-    // Focus only on PAT auth for now
-    if (authMethod !== 'pat') {
-      console.log('Auth method not supported:', authMethod);
+    // Validate required fields
+    if (!gitlabUrl || !personalAccessToken) {
+      cleanupTimeout();
       return res.status(400).json({ 
-        error: 'Only Personal Access Token authentication is supported' 
+        error: 'Missing required parameters',
+        required: ['gitlabUrl', 'personalAccessToken']
       });
     }
     
-    let token = personalAccessToken;
-    
-    if (!gitlabUrl || !token) {
-      console.log('Missing required parameters:', {
-        gitlabUrl: !!gitlabUrl,
-        token: !!token
-      });
-      return res.status(400).json({ error: 'GitLab URL and Personal Access Token are required' });
+    // Check if we have a cached response
+    const cacheKey = `${gitlabUrl}_${personalAccessToken.substring(0, 8)}`;
+    if (!forceRefresh && cache.has(cacheKey)) {
+      const cachedData = cache.get(cacheKey);
+      const now = Date.now();
+      
+      if (now - cachedData.timestamp < CACHE_TTL) {
+        console.log(`Using cached response (${cachedData.data.length} groups)`);
+        cleanupTimeout();
+        
+        return res.json({
+          namespaces: cachedData.data,
+          fromCache: true,
+          timestamp: new Date(cachedData.timestamp).toISOString()
+        });
+      }
     }
     
-    // Check cache first if not explicitly bypassing
-    const cacheKey = `${gitlabUrl}_${token.substring(0, 8)}`;
-    const now = Date.now();
-    if (!bypassCache && namespaceCache.data && namespaceCache.timestamp > (now - namespaceCache.ttl)) {
-      console.log('Using cached namespaces data');
-      const duration = Date.now() - startTime;
-      console.log(`Request completed (cached) in ${duration}ms`);
-      return res.json({
-        namespaces: namespaceCache.data,
-        fromCache: true,
-        timestamp: new Date(namespaceCache.timestamp).toISOString()
+    // Prepare cleaned URL
+    const cleanGitlabUrl = gitlabUrl.trim().replace(/\/$/, '');
+    if (!cleanGitlabUrl.startsWith('http')) {
+      cleanupTimeout();
+      return res.status(400).json({ error: 'GitLab URL must start with http:// or https://' });
+    }
+    
+    // Create client
+    const client = createGitLabClient(cleanGitlabUrl, personalAccessToken, 10000);
+    
+    // Do a quick health check first to fail fast if GitLab is inaccessible
+    const healthCheck = await checkGitLabAccess(client);
+    if (!healthCheck.accessible) {
+      cleanupTimeout();
+      return res.status(503).json({
+        error: 'GitLab API is not accessible',
+        details: healthCheck.error,
+        suggestion: 'Please check your GitLab URL and token'
       });
     }
+    
+    // We'll use this to collect groups as they come in
+    let allGroups = [];
+    
+    // Store partial results in cache as we fetch them
+    const storePartialResults = (groups) => {
+      if (groups && groups.length > 0) {
+        allGroups = [...allGroups, ...groups];
+        cache.set('partial_results', allGroups.map(group => ({
+          id: group.id,
+          name: group.name,
+          path: group.path,
+          kind: 'group',
+          full_path: group.full_path || `${group.path}`
+        })));
+      }
+    };
     
     try {
-      // Clean up the URL
-      const cleanGitlabUrl = gitlabUrl.trim().replace(/\/$/, '');
-      if (!cleanGitlabUrl.startsWith('http')) {
-        return res.status(400).json({ error: 'GitLab URL must start with http:// or https://' });
+      // Fetch first page to get pagination info
+      console.log('Fetching first page of groups...');
+      const firstPageResponse = await client.get('/api/v4/groups', {
+        params: {
+          min_access_level: 20,
+          per_page: 100,
+          page: 1,
+          simple: true
+        }
+      });
+      
+      const firstPageGroups = firstPageResponse.data;
+      storePartialResults(firstPageGroups);
+      
+      const totalPages = parseInt(firstPageResponse.headers['x-total-pages'] || '1', 10);
+      const totalItems = parseInt(firstPageResponse.headers['x-total'] || firstPageGroups.length, 10);
+      
+      console.log(`Found ${totalItems} total groups across ${totalPages} pages`);
+      
+      // If we only have one page, we're done
+      if (totalPages <= 1) {
+        console.log('Only one page of results, finishing early');
+        const namespaces = allGroups.map(group => ({
+          id: group.id,
+          name: group.name,
+          path: group.path,
+          kind: 'group',
+          full_path: group.full_path || `${group.path}`
+        }));
+        
+        // Store in cache
+        cache.set(cacheKey, {
+          data: namespaces,
+          timestamp: Date.now()
+        });
+        
+        cleanupTimeout();
+        return res.json({
+          namespaces,
+          fromCache: false,
+          timestamp: new Date().toISOString()
+        });
       }
       
-      console.log('Cleaned GitLab URL:', cleanGitlabUrl);
+      // For multiple pages, fetch remaining pages in parallel with limit
+      const MAX_CONCURRENT = 3; // Limit concurrent requests
+      const MAX_PAGES = Math.min(totalPages, 10); // Cap at 10 pages max
       
-      // Fetch user's groups with timeout and optimize the request
-      const headers = { 'PRIVATE-TOKEN': token };
-      const requestUrl = `${cleanGitlabUrl}/api/v4/groups`;
+      console.log(`Fetching ${MAX_PAGES-1} more pages with max ${MAX_CONCURRENT} concurrent requests`);
       
-      // Initial page of results
-      const requestParams = {
-        min_access_level: 20, // Reporter level or higher
-        per_page: 50,         // Increased to 50 to reduce pagination requests
-        page: 1,
-        simple: true,         // Simple version of groups for faster response
-        top_level_only: true  // Only fetch top-level groups first for better performance
-      };
+      // Create batches of pages to fetch
+      const remainingPages = Array.from({ length: MAX_PAGES - 1 }, (_, i) => i + 2);
+      const batches = [];
       
-      console.log('Sending request to:', requestUrl);
+      for (let i = 0; i < remainingPages.length; i += MAX_CONCURRENT) {
+        batches.push(remainingPages.slice(i, i + MAX_CONCURRENT));
+      }
       
-      // Set a timeout config for axios
-      const axiosConfig = {
-        headers,
-        params: requestParams,
-        timeout: 25000 // Increased to 25 seconds to handle slow GitLab instances
-      };
-      
-      let allGroups = [];
-      let currentPage = 1;
-      let hasMorePages = true;
-      const MAX_PAGES = 5; // Increased to 5 pages
-      
-      // Fetch with pagination, limited to MAX_PAGES to prevent timeouts
-      while (hasMorePages && currentPage <= MAX_PAGES) {
-        console.log(`Fetching page ${currentPage} of groups...`);
-        
-        try {
-          axiosConfig.params.page = currentPage;
-          
-          // Use our retry function instead of a direct axios call
-          const response = await fetchWithRetry(requestUrl, axiosConfig);
-          
-          if (Array.isArray(response.data) && response.data.length > 0) {
-            console.log(`Found ${response.data.length} groups on page ${currentPage}`);
-            allGroups = [...allGroups, ...response.data];
-            
-            // Check if we have more pages
-            const totalPages = response.headers['x-total-pages'];
-            if (totalPages && currentPage < parseInt(totalPages) && currentPage < MAX_PAGES) {
-              currentPage++;
-            } else {
-              hasMorePages = false;
-              if (currentPage === MAX_PAGES && totalPages && currentPage < parseInt(totalPages)) {
-                console.log(`Stopped after ${MAX_PAGES} pages. Total pages available: ${totalPages}`);
-              }
+      // Process batches sequentially, but pages within a batch in parallel
+      for (const batch of batches) {
+        const batchPromises = batch.map(page => {
+          return client.get('/api/v4/groups', {
+            params: {
+              min_access_level: 20,
+              per_page: 100,
+              page,
+              simple: true
             }
-          } else {
-            // No more results
-            hasMorePages = false;
-          }
-        } catch (err) {
-          // If we get an error on additional pages, we'll just use what we have
-          console.error(`Error fetching page ${currentPage}:`, err.message);
-          hasMorePages = false;
+          }).then(response => {
+            console.log(`Fetched page ${page} with ${response.data.length} groups`);
+            storePartialResults(response.data);
+            return response.data;
+          }).catch(error => {
+            console.error(`Error fetching page ${page}:`, error.message);
+            return []; // Return empty array on error to continue processing
+          });
+        });
+        
+        await Promise.all(batchPromises);
+      }
+      
+      // Final processing of all groups
+      console.log(`Successfully fetched ${allGroups.length} groups total`);
+      
+      const namespaces = allGroups.map(group => ({
+        id: group.id,
+        name: group.name,
+        path: group.path,
+        kind: 'group',
+        full_path: group.full_path || `${group.path}`
+      }));
+      
+      // Store complete results in cache
+      cache.set(cacheKey, {
+        data: namespaces,
+        timestamp: Date.now()
+      });
+      
+      // Only respond if we haven't sent a partial response yet
+      if (!hasResponded) {
+        cleanupTimeout();
+        const duration = Date.now() - startTime;
+        console.log(`Completed in ${duration}ms with ${namespaces.length} groups`);
+        
+        return res.json({
+          namespaces,
+          fromCache: false,
+          complete: true,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching groups:', error.message);
+      
+      // If we have partial results and haven't responded yet, return them
+      if (!hasResponded && cache.has('partial_results')) {
+        const partialData = cache.get('partial_results');
+        if (partialData && partialData.length > 0) {
+          hasResponded = true;
+          cleanupTimeout();
+          
+          return res.status(206).json({
+            namespaces: partialData,
+            complete: false,
+            error: error.message,
+            message: 'Partial results returned due to error',
+            timestamp: new Date().toISOString()
+          });
         }
       }
       
-      console.log('Total groups found:', allGroups.length);
-      
-      // Convert to our format (with minimal data)
-      const namespaces = allGroups.map(group => ({ 
-        id: group.id, 
-        name: group.name, 
-        path: group.path,
-        kind: 'group',
-        full_path: group.full_path
-      }));
-      
-      console.log('Formatted namespaces count:', namespaces.length);
-      
-      // Update the cache
-      namespaceCache.data = namespaces;
-      namespaceCache.timestamp = Date.now();
-      
-      // Record end time and log the duration
-      const duration = Date.now() - startTime;
-      console.log(`Request completed in ${duration}ms`);
-      
-      res.json({
-        namespaces,
-        fromCache: false,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error('Error fetching groups from GitLab API:');
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('Error status:', error.response.status);
-        console.error('Error data:', JSON.stringify(error.response.data, null, 2));
+      // If we don't have partial results or already responded, return error
+      if (!hasResponded) {
+        cleanupTimeout();
         
-        // Return specific GitLab API errors
-        return res.status(error.response.status).json({ 
-          error: 'GitLab API error', 
-          details: error.response.data?.message || error.response.data,
-          status: error.response.status
-        });
-      } else if (error.request) {
-        // Handle timeouts and connection errors
-        const errorMessage = error.code === 'ECONNABORTED' 
-          ? 'Connection timeout when connecting to GitLab API. The server is taking too long to respond.'
-          : 'Failed to connect to GitLab API';
-          
-        return res.status(504).json({ 
-          error: errorMessage,
-          code: error.code,
-          suggestion: 'Try again with a smaller group of repositories or check your GitLab instance performance.'
-        });
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        return res.status(500).json({ 
-          error: 'Error setting up GitLab API request', 
-          details: error.message
-        });
+        // Format error response based on type
+        if (error.response) {
+          return res.status(error.response.status).json({
+            error: 'GitLab API error',
+            status: error.response.status,
+            message: error.response.data?.message || error.message
+          });
+        } else if (error.code === 'ECONNABORTED') {
+          return res.status(504).json({
+            error: 'Connection timeout',
+            message: 'The GitLab server is taking too long to respond',
+            suggestion: 'Try again later or check your GitLab instance'
+          });
+        } else {
+          return res.status(500).json({
+            error: 'Failed to fetch groups',
+            message: error.message
+          });
+        }
       }
     }
   } catch (error) {
-    console.error('General error in fetch-namespaces handler:');
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
+    // Handle any unexpected errors
+    console.error('Unexpected error in fetch-namespaces handler:', error.message);
     
-    // Record end time and log the duration even for errors
-    const duration = Date.now() - startTime;
-    console.log(`Request failed after ${duration}ms`);
-    
-    res.status(500).json({ 
-      error: 'Server error processing request',
-      details: error.message
-    });
+    if (!hasResponded) {
+      cleanupTimeout();
+      res.status(500).json({
+        error: 'Server error',
+        message: error.message
+      });
+    }
   }
 };
