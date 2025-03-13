@@ -49,40 +49,70 @@ module.exports = async (req, res) => {
       // Fetch user's groups with timeout and optimize the request
       const headers = { 'PRIVATE-TOKEN': token };
       const requestUrl = `${cleanGitlabUrl}/api/v4/groups`;
+      
+      // Initial page of results
       const requestParams = {
         min_access_level: 20, // Reporter level or higher
         per_page: 20,         // Limit to fewer groups to prevent timeout
         page: 1,
-        simple: true          // Simple version of groups for faster response
+        simple: true,         // Simple version of groups for faster response
+        top_level_only: true  // Only fetch top-level groups first for better performance
       };
       
       console.log('Sending request to:', requestUrl);
       
-      // Set a shorter timeout for the request
-      const axiosResponse = await axios.get(requestUrl, {
+      // Set a timeout config for axios
+      const axiosConfig = {
         headers,
         params: requestParams,
-        timeout: 5000 // 5 second timeout
-      });
+        timeout: 8000 // 8 second timeout
+      };
       
-      console.log('Response status:', axiosResponse.status);
+      let allGroups = [];
+      let currentPage = 1;
+      let hasMorePages = true;
+      const MAX_PAGES = 3; // Limit pages to prevent timeouts
       
-      if (Array.isArray(axiosResponse.data)) {
-        console.log('Number of groups found:', axiosResponse.data.length);
-      } else {
-        console.log('Response data is not an array');
+      // Fetch with pagination, limited to MAX_PAGES to prevent timeouts
+      while (hasMorePages && currentPage <= MAX_PAGES) {
+        console.log(`Fetching page ${currentPage} of groups...`);
+        
+        try {
+          axiosConfig.params.page = currentPage;
+          const response = await axios.get(requestUrl, axiosConfig);
+          
+          if (Array.isArray(response.data) && response.data.length > 0) {
+            console.log(`Found ${response.data.length} groups on page ${currentPage}`);
+            allGroups = [...allGroups, ...response.data];
+            
+            // Check if we have more pages
+            const totalPages = response.headers['x-total-pages'];
+            if (totalPages && currentPage < parseInt(totalPages)) {
+              currentPage++;
+            } else {
+              hasMorePages = false;
+            }
+          } else {
+            // No more results
+            hasMorePages = false;
+          }
+        } catch (err) {
+          // If we get an error on additional pages, we'll just use what we have
+          console.error(`Error fetching page ${currentPage}:`, err.message);
+          hasMorePages = false;
+        }
       }
       
+      console.log('Total groups found:', allGroups.length);
+      
       // Convert to our format (with minimal data)
-      const namespaces = Array.isArray(axiosResponse.data) 
-        ? axiosResponse.data.map(group => ({ 
-            id: group.id, 
-            name: group.name, 
-            path: group.path,
-            kind: 'group',
-            full_path: group.full_path
-          }))
-        : [];
+      const namespaces = allGroups.map(group => ({ 
+        id: group.id, 
+        name: group.name, 
+        path: group.path,
+        kind: 'group',
+        full_path: group.full_path
+      }));
       
       console.log('Formatted namespaces count:', namespaces.length);
       

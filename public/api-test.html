@@ -9,6 +9,7 @@
     .container {
       max-width: 800px;
       margin-top: 2rem;
+      margin-bottom: 2rem;
     }
     pre {
       background-color: #f8f9fa;
@@ -35,13 +36,13 @@
         <form id="apiTestForm">
           <div class="mb-3">
             <label for="gitlabUrl" class="form-label">GitLab URL</label>
-            <input type="url" class="form-control" id="gitlabUrl" placeholder="https://gitlab.com" required>
+            <input type="url" class="form-control" id="gitlabUrl" placeholder="https://gitlab.com" value="https://gitlab.com" required>
             <div class="form-text">Your GitLab instance URL (e.g., https://gitlab.com)</div>
           </div>
           
           <div class="mb-3">
             <label for="token" class="form-label">Personal Access Token</label>
-            <input type="password" class="form-control" id="token" required>
+            <input type="password" class="form-control" id="token" placeholder="Enter your token" required>
             <div class="form-text">Your GitLab personal access token with <code>read_api</code> scope</div>
           </div>
           
@@ -100,19 +101,15 @@
     
     <div class="card">
       <div class="card-header">
-        <h5 class="mb-0">Troubleshooting</h5>
+        <h5 class="mb-0">API Endpoints Status</h5>
       </div>
       <div class="card-body">
-        <h6>Common Issues:</h6>
-        <ul>
-          <li>Make sure your GitLab URL is correct and does not include paths</li>
-          <li>Ensure your personal access token has the <code>read_api</code> scope</li>
-          <li>For enterprise GitLab instances, confirm you have the proper permissions</li>
-          <li>Check if your GitLab instance allows API access from external sources</li>
-        </ul>
-        
-        <h6 class="mt-3">Test Environment:</h6>
-        <pre id="environmentInfo">Loading environment information...</pre>
+        <div id="apiStatus" class="text-center">
+          <div class="spinner-border spinner-border-sm text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <span class="ms-2">Checking API status...</span>
+        </div>
       </div>
     </div>
   </div>
@@ -125,18 +122,63 @@
       const statusBadge = document.getElementById('statusBadge');
       const responseData = document.getElementById('responseData');
       const requestData = document.getElementById('requestData');
-      const environmentInfo = document.getElementById('environmentInfo');
+      const apiStatus = document.getElementById('apiStatus');
       
-      // Load environment info
-      fetch('/api')
-        .then(response => response.json())
-        .then(data => {
-          environmentInfo.textContent = JSON.stringify(data, null, 2);
-        })
-        .catch(error => {
-          environmentInfo.textContent = `Error fetching environment info: ${error.message}`;
-        });
+      // Check API status
+      function checkApiEndpoint(endpoint, name) {
+        return fetch(endpoint)
+          .then(response => {
+            return {
+              name: name,
+              status: response.status,
+              ok: response.ok
+            };
+          })
+          .catch(error => {
+            return {
+              name: name,
+              status: 'Error',
+              error: error.message,
+              ok: false
+            };
+          });
+      }
       
+      // Check all API endpoints
+      Promise.all([
+        checkApiEndpoint('/api', 'Main API'),
+        checkApiEndpoint('/api/health', 'Health Check'),
+        checkApiEndpoint('/api/build-info', 'Build Info')
+      ]).then(results => {
+        apiStatus.innerHTML = '';
+        
+        const table = document.createElement('table');
+        table.className = 'table';
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Endpoint</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${results.map(result => `
+              <tr>
+                <td>${result.name}</td>
+                <td>
+                  <span class="badge ${result.ok ? 'bg-success' : 'bg-danger'}">
+                    ${result.ok ? 'OK' : 'Failed'} (${result.status})
+                  </span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        `;
+        
+        apiStatus.appendChild(table);
+      });
+      
+      // Handle form submission
       form.addEventListener('submit', async function(e) {
         e.preventDefault();
         

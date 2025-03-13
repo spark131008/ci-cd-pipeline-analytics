@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Button, Alert } from 'react-bootstrap';
+import { Card, Form, Button, Alert, Spinner, Badge } from 'react-bootstrap';
 import { gitlabApi, authApi } from '../utils/api';
 
 const GitLabForm = ({ onSubmit, addAlert }) => {
@@ -12,20 +12,66 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
   const [loadingNamespaces, setLoadingNamespaces] = useState(false);
   const [samlSession, setSamlSession] = useState(null);
   const [samlStatus, setSamlStatus] = useState('Not authenticated');
+  const [connectionStatus, setConnectionStatus] = useState('unknown'); // 'unknown', 'success', 'error'
+  const [errorDetails, setErrorDetails] = useState(null);
+  const [lastTested, setLastTested] = useState(null);
 
   useEffect(() => {
     if (gitlabUrl && (
       (authMethod === 'pat' && personalAccessToken) ||
       (authMethod === 'saml' && samlSession)
     )) {
-      fetchNamespaces();
+      // Reset states when credentials change
+      setConnectionStatus('unknown');
+      setErrorDetails(null);
+      setNamespaces([]);
+      setNamespace('');
+      
+      // Debounce fetch namespaces to prevent multiple rapid requests
+      const timer = setTimeout(() => {
+        fetchNamespaces();
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
   }, [gitlabUrl, personalAccessToken, authMethod, samlSession]);
 
+  const testGitLabConnection = async () => {
+    if (!gitlabUrl || (authMethod === 'pat' && !personalAccessToken)) {
+      addAlert('warning', 'Please provide GitLab URL and authentication credentials');
+      return;
+    }
+    
+    try {
+      setConnectionStatus('testing');
+      setErrorDetails(null);
+      
+      // Use the test API endpoint
+      const response = await fetch(`/api/gitlab/test-api?url=${encodeURIComponent(gitlabUrl)}&token=${encodeURIComponent(personalAccessToken)}`);
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setConnectionStatus('success');
+        setLastTested(new Date());
+        addAlert('success', `Successfully connected to GitLab ${data.gitlab_version.version}`);
+      } else {
+        setConnectionStatus('error');
+        setErrorDetails(data);
+        addAlert('danger', `Connection test failed: ${data.error || data.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error testing GitLab connection:', error);
+      setConnectionStatus('error');
+      setErrorDetails({ message: error.message });
+      addAlert('danger', `Connection test error: ${error.message}`);
+    }
+  };
+  
   const fetchNamespaces = async () => {
     if (!gitlabUrl) return;
     
     setLoadingNamespaces(true);
+    setConnectionStatus('testing'); // Update connection status while loading
     
     try {
       const requestBody = {
@@ -47,8 +93,20 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
       const data = await gitlabApi.fetchNamespaces(requestBody);
       console.log('Namespaces received:', data);
       setNamespaces(data);
+      setConnectionStatus('success');
+      setLastTested(new Date());
+      setErrorDetails(null);
+      
+      // Show success message only if we found groups
+      if (data.length > 0) {
+        addAlert('success', `Successfully fetched ${data.length} GitLab groups`);
+      } else {
+        addAlert('warning', 'No GitLab groups found with your current access level');
+      }
     } catch (error) {
       console.error('Error fetching namespaces:', error);
+      setConnectionStatus('error');
+      setErrorDetails({ message: error.message });
       addAlert('danger', `Error fetching GitLab groups: ${error.message}`);
     } finally {
       setLoadingNamespaces(false);
@@ -283,10 +341,54 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
           <Button type="submit" variant="primary">Fetch CI Metrics</Button>
         </Form>
         
-        <Alert variant="warning" className="mt-3">
+        <div className="d-flex justify-content-between align-items-center mt-3 mb-3">
+          <Button variant="outline-secondary" size="sm" onClick={testGitLabConnection} disabled={!gitlabUrl || (authMethod === 'pat' && !personalAccessToken)}>
+            Test GitLab Connection
+          </Button>
+          
+          {connectionStatus === 'testing' && (
+            <div>
+              <Spinner animation="border" size="sm" /> Testing connection...
+            </div>
+          )}
+          
+          {connectionStatus === 'success' && (
+            <Badge bg="success" className="p-2">
+              Connection Successful
+              {lastTested && (
+                <small className="ms-2">({new Date(lastTested).toLocaleTimeString()})</small>
+              )}
+            </Badge>
+          )}
+          
+          {connectionStatus === 'error' && (
+            <Badge bg="danger" className="p-2">Connection Failed</Badge>
+          )}
+        </div>
+        
+        {errorDetails && (
+          <Alert variant="danger" className="mt-3">
+            <strong>Error Details:</strong>
+            <p className="mb-1">{errorDetails.message || 'Unknown error'}</p>
+            {errorDetails.status && <p className="mb-0">Status: {errorDetails.status}</p>}
+            {errorDetails.code && <p className="mb-0">Code: {errorDetails.code}</p>}
+            <hr />
+            <p className="mb-0">
+              <a href="/api" target="_blank" rel="noopener noreferrer" className="text-danger">
+                Check API Status
+              </a>
+            </p>
+          </Alert>
+        )}
+        
+        <Alert variant="info" className="mt-3">
           <strong>Troubleshooting:</strong> If you're experiencing issues with API calls,
-          please ensure your GitLab URL is correct and your Personal Access Token has the 
-          appropriate permissions (api scope).
+          please ensure:
+          <ul className="mb-0">
+            <li>Your GitLab URL is correct and accessible</li>
+            <li>Your Personal Access Token has the <code>read_api</code> scope</li>
+            <li>You have access to at least one group in GitLab</li>
+          </ul>
         </Alert>
       </Card.Body>
     </Card>

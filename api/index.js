@@ -89,12 +89,70 @@ app.get('/api/build-info', (req, res) => {
   res.status(200).json(buildInfo);
 });
 
-// Health check endpoint
+// Health check endpoint with detailed diagnostics
 app.get('/api/health', (req, res) => {
-  res.status(200).json({
+  // Get memory usage
+  const memoryUsage = process.memoryUsage();
+  
+  // Create health status object
+  const healthStatus = {
     status: 'healthy',
     time: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    environment: {
+      node_version: process.version,
+      platform: process.platform,
+      env: process.env.NODE_ENV || 'development',
+      vercel: process.env.VERCEL === '1' ? true : false,
+      function_timeout: process.env.VERCEL ? '15 seconds' : 'No limit',
+    },
+    memory: {
+      rss: Math.round(memoryUsage.rss / 1024 / 1024) + 'MB',
+      heap_total: Math.round(memoryUsage.heapTotal / 1024 / 1024) + 'MB',
+      heap_used: Math.round(memoryUsage.heapUsed / 1024 / 1024) + 'MB',
+      external: Math.round(memoryUsage.external / 1024 / 1024) + 'MB',
+    },
+    request: {
+      headers: req.headers['user-agent'],
+      ip: req.ip || req.connection.remoteAddress,
+      protocol: req.protocol,
+      method: req.method,
+      host: req.get('host'),
+    }
+  };
+  
+  // Run a quick self-test
+  try {
+    // If the request made it this far, the API is working properly
+    healthStatus.tests = {
+      api_reachable: true,
+    };
+    
+    res.status(200).json(healthStatus);
+  } catch (error) {
+    healthStatus.status = 'unhealthy';
+    healthStatus.error = error.message;
+    res.status(500).json(healthStatus);
+  }
+});
+
+// API Documentation endpoint
+app.get('/api/docs', (req, res) => {
+  res.status(200).json({
+    name: 'GitLab CI Analytics API',
+    version: '1.0.0',
+    description: 'API for GitLab CI/CD analytics dashboard',
+    endpoints: [
+      { path: '/api', method: 'GET', description: 'API root - confirms API is running' },
+      { path: '/api/health', method: 'GET', description: 'Health check with detailed diagnostic information' },
+      { path: '/api/build-info', method: 'GET', description: 'Information about the current build' },
+      { path: '/api/docs', method: 'GET', description: 'API documentation' },
+      { path: '/api/gitlab/test-api', method: 'GET', description: 'Test GitLab API connection', params: ['url', 'token'] },
+      { path: '/api/gitlab/fetch-namespaces', method: 'POST', description: 'Fetch GitLab namespaces (groups)' },
+      { path: '/api/gitlab/fetch-ci-metrics', method: 'POST', description: 'Fetch CI pipeline metrics' },
+      { path: '/api/saml-auth-init', method: 'GET', description: 'Initialize SAML authentication' },
+      { path: '/api/saml-auth-status', method: 'GET', description: 'Check SAML authentication status' },
+    ]
   });
 });
 
