@@ -14,11 +14,6 @@ export default defineConfig({
         target: "http://localhost:3000",
         changeOrigin: true,
         secure: false,
-        onError(err, req, res) {
-          console.error("Proxy error:", err);
-          res.writeHead(500, { "Content-Type": "text/plain" });
-          res.end("Proxy error, backend is unreachable.");
-        },
       },
     },
     open: true,
