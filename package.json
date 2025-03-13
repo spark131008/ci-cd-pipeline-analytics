@@ -9,7 +9,7 @@
     "dev:frontend": "vite",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:vercel": "vercel dev --port 4000",
-    "build": "vite build",
+    "build": "vercel build",
     "test": "jest",
     "test:backend": "jest tests/backend",
     "test:frontend": "jest tests/frontend"
