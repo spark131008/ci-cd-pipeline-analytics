@@ -3,6 +3,7 @@ import { Container, Spinner } from 'react-bootstrap';
 import GitLabForm from './components/GitLabForm';
 import ResultsSection from './components/ResultsSection';
 import AlertMessages from './components/AlertMessages';
+import { gitlabApi } from './utils/api';
 
 const App = () => {
   const [loading, setLoading] = useState(false);
@@ -15,20 +16,15 @@ const App = () => {
     setAlerts([]);
     
     try {
-      const response = await fetch('/api/gitlab/fetch-ci-metrics', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
+      console.log('Fetching CI metrics with:', {
+        ...formData,
+        personalAccessToken: formData.personalAccessToken ? '[MASKED]' : undefined
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch CI metrics');
-      }
+      // Use our API client instead of fetch directly
+      const data = await gitlabApi.fetchCIMetrics(formData);
       
-      const data = await response.json();
+      console.log('CI metrics received:', data);
       setMetrics(data);
       setTimeRange(formData.timeRange);
     } catch (error) {
@@ -50,7 +46,7 @@ const App = () => {
   return (
     <Container>
       <h1 className="mb-4">GitLab CI Analytics</h1>
-      <p className="text-muted">Development Mode - React + Express</p>
+      <p className="text-muted">React + Express API</p>
       
       <GitLabForm 
         onSubmit={handleFetchMetrics} 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Form, Button, Alert } from 'react-bootstrap';
+import { gitlabApi, authApi } from '../utils/api';
 
 const GitLabForm = ({ onSubmit, addAlert }) => {
   const [gitlabUrl, setGitlabUrl] = useState('');
@@ -40,19 +41,11 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
         return;
       }
       
-      const response = await fetch('/api/gitlab/fetch-namespaces', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
+      console.log('Fetching namespaces with:', {...requestBody, personalAccessToken: requestBody.personalAccessToken ? '[MASKED]' : undefined});
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch groups');
-      }
-      
-      const data = await response.json();
+      // Use our API client instead of fetch directly
+      const data = await gitlabApi.fetchNamespaces(requestBody);
+      console.log('Namespaces received:', data);
       setNamespaces(data);
     } catch (error) {
       console.error('Error fetching namespaces:', error);
@@ -125,8 +118,7 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
         // Poll for auth status
         const checkInterval = setInterval(async () => {
           try {
-            const response = await fetch('/api/saml-auth-status');
-            const data = await response.json();
+            const data = await authApi.getSamlAuthStatus();
             
             if (data.authenticated) {
               clearInterval(checkInterval);
@@ -291,10 +283,10 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
           <Button type="submit" variant="primary">Fetch CI Metrics</Button>
         </Form>
         
-        <Alert variant="info" className="mt-3">
-          <strong>Note:</strong> For GitLab instances that use SAML authentication (like Stanford's GitLab), 
-          you may need to use a different authentication method. Personal Access Tokens alone might not work.
-          Please contact your GitLab administrator for the correct API access method.
+        <Alert variant="warning" className="mt-3">
+          <strong>Troubleshooting:</strong> If you're experiencing issues with API calls,
+          please ensure your GitLab URL is correct and your Personal Access Token has the 
+          appropriate permissions (api scope).
         </Alert>
       </Card.Body>
     </Card>
