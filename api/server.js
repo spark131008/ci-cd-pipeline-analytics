@@ -119,11 +119,15 @@ const setupApp = () => {
   // Debug log
   console.log('Handlers loaded:', {
     fetchCIMetricsHandler: typeof fetchCIMetricsHandler,
-    fetchNamespacesHandler: typeof fetchNamespacesHandler
+    fetchNamespacesHandler: typeof fetchNamespacesHandler,
+    samlAuthInitHandler: typeof samlAuthInitHandler,
+    samlAuthStatusHandler: typeof samlAuthStatusHandler,
+    testApi: typeof testApi
   });
 
   // Handle unknown routes - for SPA client-side routing
   app.get('*', (req, res) => {
+    console.log('Unknown route:', req.url);
     if (process.env.NODE_ENV === 'production') {
       res.sendFile(path.join(__dirname, '../dist', 'index.html'));
     } else {
@@ -165,6 +169,7 @@ if (process.env.VERCEL) {
   const app = setupApp();
   
   // Add a simple direct route for debugging
+  console.log('Adding debug route');
   app.get('/api/debug', (req, res) => {
     res.status(200).json({
       message: 'Debug endpoint working',
@@ -174,6 +179,7 @@ if (process.env.VERCEL) {
     });
   });
   
+  console.log('Module exports:', typeof serverless, typeof app);
   module.exports = serverless(app);
 } else if (require.main === module) {
   // If this file is being run directly, start the server

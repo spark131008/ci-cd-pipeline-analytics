@@ -6,13 +6,17 @@
     }
   },
   "routes": [
+    {
+      "src": "/api/test",
+      "dest": "/api/test.js"
+    },
     { 
       "src": "/api/(.*)", 
       "dest": "/api/server.js" 
     },
     { 
       "src": "/(.*)", 
-      "dest": "/dist/index.html" 
+      "dest": "/index.html" 
     }
   ],
   "devCommand": "npm run dev",
