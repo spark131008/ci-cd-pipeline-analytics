@@ -1,5 +1,4 @@
 const express = require('express');
-const serverless = require('serverless-http');
 const axios = require('axios');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -179,8 +178,8 @@ if (process.env.VERCEL) {
     });
   });
   
-  console.log('Module exports:', typeof serverless, typeof app);
-  module.exports = serverless(app);
+  console.log('Module exports:', typeof app);
+  module.exports = app;
 } else if (require.main === module) {
   // If this file is being run directly, start the server
   setupLocalServer();
