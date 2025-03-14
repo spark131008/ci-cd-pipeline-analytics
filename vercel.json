@@ -8,27 +8,7 @@
   "framework": "vite",
   "rewrites": [
     { 
-      "source": "/api/gitlab/fetch-ci-metrics", 
-      "destination": "/api/server.js" 
-    },
-    { 
-      "source": "/api/gitlab/fetch-namespaces", 
-      "destination": "/api/server.js" 
-    },
-    { 
-      "source": "/api/saml-auth-init", 
-      "destination": "/api/server.js" 
-    },
-    { 
-      "source": "/api/saml-auth-status", 
-      "destination": "/api/server.js" 
-    },
-    { 
-      "source": "/api/test", 
-      "destination": "/api/server.js" 
-    },
-    { 
-      "source": "/api/debug", 
+      "source": "/api/:path*", 
       "destination": "/api/server.js" 
     },
     { 

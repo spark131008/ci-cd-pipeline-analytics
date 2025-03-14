@@ -167,17 +167,6 @@ if (process.env.VERCEL) {
   console.log('Exporting serverless handler for Vercel');
   const app = setupApp();
   
-  // Add a simple direct route for debugging
-  console.log('Adding debug route');
-  app.get('/api/debug', (req, res) => {
-    res.status(200).json({
-      message: 'Debug endpoint working',
-      env: process.env.NODE_ENV,
-      vercel: true,
-      timestamp: new Date().toISOString()
-    });
-  });
-  
   console.log('Module exports:', typeof app);
   module.exports = app;
 } else if (require.main === module) {
