@@ -1,21 +1,24 @@
 import React from 'react';
 import { Alert } from 'react-bootstrap';
 
-const AlertMessages = ({ alerts, onDismiss }) => {
+function AlertMessages({ alerts, onDismiss, className = '' }) {
+  if (alerts.length === 0) return null;
+  
   return (
-    <div className="my-3">
+    <div className={`alert-container ${className}`}>
       {alerts.map((alert) => (
         <Alert 
           key={alert.id} 
           variant={alert.type} 
           dismissible 
           onClose={() => onDismiss(alert.id)}
+          className="mb-2"
         >
           {alert.message}
         </Alert>
       ))}
     </div>
   );
-};
+}
 
 export default AlertMessages;
