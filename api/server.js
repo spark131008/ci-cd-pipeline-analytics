@@ -84,11 +84,29 @@ const setupApp = () => {
   });
 
   // Import API handlers
-  const fetchCIMetricsHandler = require('./gitlab/fetch-ci-metrics');  // If within api folder
-  const fetchNamespacesHandler = require('./gitlab/fetch-namespaces');
-  const samlAuthInitHandler = require('./auth/saml-auth-init');
-  const samlAuthStatusHandler = require('./auth/saml-auth-status');
-  const testApi = require("./test");
+  let fetchCIMetricsHandler, fetchNamespacesHandler, samlAuthInitHandler, samlAuthStatusHandler, testApi;
+  
+  try {
+    // In Vercel environment, the paths might be different
+    if (process.env.VERCEL) {
+      console.log('Loading handlers in Vercel environment');
+      fetchCIMetricsHandler = require('./gitlab/fetch-ci-metrics');
+      fetchNamespacesHandler = require('./gitlab/fetch-namespaces');
+      samlAuthInitHandler = require('./auth/saml-auth-init');
+      samlAuthStatusHandler = require('./auth/saml-auth-status');
+      testApi = require('./test');
+    } else {
+      console.log('Loading handlers in local environment');
+      fetchCIMetricsHandler = require('./gitlab/fetch-ci-metrics');
+      fetchNamespacesHandler = require('./gitlab/fetch-namespaces');
+      samlAuthInitHandler = require('./auth/saml-auth-init');
+      samlAuthStatusHandler = require('./auth/saml-auth-status');
+      testApi = require('./test');
+    }
+    console.log('All handlers loaded successfully');
+  } catch (error) {
+    console.error('Error loading handlers:', error);
+  }
 
 
   // Register API routes
@@ -143,7 +161,19 @@ const setupLocalServer = () => {
 
 // Export appropriate objects based on environment
 if (process.env.VERCEL) {
+  console.log('Exporting serverless handler for Vercel');
   const app = setupApp();
+  
+  // Add a simple direct route for debugging
+  app.get('/api/debug', (req, res) => {
+    res.status(200).json({
+      message: 'Debug endpoint working',
+      env: process.env.NODE_ENV,
+      vercel: true,
+      timestamp: new Date().toISOString()
+    });
+  });
+  
   module.exports = serverless(app);
 } else if (require.main === module) {
   // If this file is being run directly, start the server
