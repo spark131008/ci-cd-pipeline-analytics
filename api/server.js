@@ -25,8 +25,14 @@ const setupApp = () => {
   app.use(bodyParser.urlencoded({ extended: true }));
   
   // Serve static files from both public and dist directories
-  app.use(express.static('public'));
-  app.use(express.static('dist'));
+  if (process.env.VERCEL) {
+    // In Vercel, we don't need to serve static files from the Express app
+    // as Vercel handles static file serving through vercel.json routes
+    console.log('Running on Vercel - static file serving handled by Vercel');
+  } else {
+    app.use(express.static('public'));
+    app.use(express.static('dist'));
+  }
 
   // Session Configuration
   let sessionConfig = {
