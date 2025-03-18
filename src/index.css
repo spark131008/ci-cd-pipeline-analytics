@@ -1,6 +1,8 @@
 body {
   padding-top: 2rem;
   padding-bottom: 2rem;
+  background-color: #f8f9fa;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .chart-container {
@@ -24,6 +26,9 @@ body {
 
 .card {
   margin-bottom: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border: none;
 }
 
 .metrics-summary {
@@ -37,4 +42,214 @@ body {
 
 .alert {
   margin-top: 1rem;
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Animation for transitions */
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Improved button styles */
+.btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background-color: #0069d9;
+  border-color: #0062cc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 105, 217, 0.2);
+}
+
+.btn-success {
+  transition: all 0.2s ease;
+}
+
+.btn-success:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
+}
+
+/* Container styling */
+.container {
+  max-width: 1000px;
+  padding: 0 20px;
+}
+
+h1 {
+  color: #343a40;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+/* Form control focus states */
+.form-control:focus, .form-select:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Code styling */
+code {
+  background-color: #f8f9fa;
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: #e83e8c;
+  font-size: 0.9em;
+}
+
+/* App background and container */
+.app-background {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);
+  padding: 20px 0;
+}
+
+/* Loading overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.loading-content {
+  text-align: center;
+  padding: 30px;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+}
+
+/* Spinner animation */
+.spinner-icon {
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Results card */
+.results-card {
+  border: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Badge styling */
+.badge {
+  font-weight: 500;
+  padding: 0.5em 0.8em;
+  border-radius: 30px;
+}
+
+/* Display heading */
+.display-4 {
+  font-weight: 600;
+}
+
+/* Lead text */
+.lead {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Form and Results Layout */
+.form-column {
+  transition: all 0.5s ease;
+}
+
+.results-column {
+  animation: slideIn 0.8s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Results indicator for mobile */
+.results-indicator {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Smooth scrolling for the entire page */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Improve form submission button */
+.btn-success {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-success:after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1, 1) translate(-50%);
+  transform-origin: 50% 50%;
+}
+
+.btn-success:focus:not(:active)::after {
+  animation: ripple 1s ease-out;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0, 0);
+    opacity: 0.5;
+  }
+  20% {
+    transform: scale(25, 25);
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(40, 40);
+  }
 }

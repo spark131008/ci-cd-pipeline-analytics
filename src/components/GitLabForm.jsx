@@ -4,13 +4,38 @@ import { Card, Form, Button, Alert } from 'react-bootstrap';
 const GitLabForm = ({ onSubmit, addAlert }) => {
   const [gitlabUrl, setGitlabUrl] = useState('');
   const [personalAccessToken, setPersonalAccessToken] = useState('');
-  const [authMethod, setAuthMethod] = useState('pat');
+  const [authMethod, setAuthMethod] = useState('pat'); // Only 'pat' is available, 'saml' is disabled in UI
   const [namespace, setNamespace] = useState('');
   const [timeRange, setTimeRange] = useState('month');
   const [namespaces, setNamespaces] = useState([]);
   const [loadingNamespaces, setLoadingNamespaces] = useState(false);
   const [samlSession, setSamlSession] = useState(null);
   const [samlStatus, setSamlStatus] = useState('Not authenticated');
+
+  // Function to normalize URL by adding https:// if missing and removing duplicates
+  const normalizeUrl = (url) => {
+    if (!url) return '';
+    
+    // Remove leading/trailing whitespace
+    let normalizedUrl = url.trim();
+    
+    // Check for duplicate https:// patterns
+    const httpsPattern = /^(https:\/\/)+/i;
+    if (httpsPattern.test(normalizedUrl)) {
+      // Replace multiple https:// with a single one
+      normalizedUrl = normalizedUrl.replace(httpsPattern, 'https://');
+    } else if (!normalizedUrl.match(/^https?:\/\//i)) {
+      // Add https:// if no protocol is specified
+      normalizedUrl = `https://${normalizedUrl}`;
+    }
+    
+    return normalizedUrl;
+  };
+
+  const handleUrlChange = (e) => {
+    const normalizedUrl = normalizeUrl(e.target.value);
+    setGitlabUrl(normalizedUrl);
+  };
 
   useEffect(() => {
     if (gitlabUrl && (
@@ -27,8 +52,11 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
     setLoadingNamespaces(true);
     
     try {
+      // Ensure URL is normalized before using it
+      const normalizedUrl = normalizeUrl(gitlabUrl);
+      
       const requestBody = {
-        gitlabUrl,
+        gitlabUrl: normalizedUrl,
         authMethod
       };
       
@@ -63,7 +91,9 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
   };
 
   const handleAuthMethodChange = (e) => {
-    setAuthMethod(e.target.value);
+    // Prevent selecting the SAML option since it's disabled/coming soon
+    const newAuthMethod = e.target.value === 'saml' ? 'pat' : e.target.value;
+    setAuthMethod(newAuthMethod);
     setNamespace('');
   };
 
@@ -85,8 +115,11 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
       return;
     }
     
+    // Ensure URL is normalized before submitting
+    const normalizedUrl = normalizeUrl(gitlabUrl);
+    
     onSubmit({
-      gitlabUrl,
+      gitlabUrl: normalizedUrl,
       authMethod,
       personalAccessToken,
       samlSessionId: samlSession?.id,
@@ -104,9 +137,12 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
     try {
       setSamlStatus("Initiating GitLab authentication...");
       
-      if (gitlabUrl.includes('stanford.edu')) {
+      // Ensure URL is normalized before using it
+      const normalizedUrl = normalizeUrl(gitlabUrl);
+      
+      if (normalizedUrl.includes('stanford.edu')) {
         // Stanford GitLab auth flow
-        const signInUrl = `${gitlabUrl}/users/sign_in`;
+        const signInUrl = `${normalizedUrl}/users/sign_in`;
         const signInWindow = window.open(
           signInUrl,
           'GitLab Sign In',
@@ -117,7 +153,7 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
       } else {
         // Regular SAML flow
         const samlWindow = window.open(
-          `/api/saml-auth-init?gitlabUrl=${encodeURIComponent(gitlabUrl)}`,
+          `/api/saml-auth-init?gitlabUrl=${encodeURIComponent(normalizedUrl)}`,
           'GitLab SAML Login',
           'width=600,height=700'
         );
@@ -150,13 +186,16 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
 
   const completeStanfordAuth = async () => {
     try {
+      // Ensure URL is normalized before using it
+      const normalizedUrl = normalizeUrl(gitlabUrl);
+      
       const tokenResponse = await fetch('/api/auth/get-gitlab-token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          gitlabUrl
+          gitlabUrl: normalizedUrl
         }),
         credentials: 'include'
       });
@@ -181,14 +220,17 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
         <h5 className="mb-0">Configuration</h5>
       </Card.Header>
       <Card.Body>
+        <Alert variant="info" className="mb-3">
+          <strong>Privacy Note:</strong> This app does not store any data permanently. All information is session-lived and will be cleared when you close your browser.
+        </Alert>
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
-            <Form.Label>GitLab URL</Form.Label>
+            <Form.Label>GitLab Base URL</Form.Label>
             <Form.Control 
               type="url" 
               placeholder="https://gitlab.com" 
               value={gitlabUrl}
-              onChange={(e) => setGitlabUrl(e.target.value)}
+              onChange={handleUrlChange}
               required
             />
             <Form.Text className="text-muted">
@@ -206,7 +248,7 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
               onChange={handleAuthMethodChange}
             >
               <option value="pat">Personal Access Token</option>
-              <option value="saml">SAML Authentication</option>
+              <option value="saml" disabled>SAML Authentication (Coming Soon)</option>
             </Form.Select>
             <Form.Text className="text-muted">
               Choose how to authenticate with GitLab. For enterprise GitLab instances, SAML might be required.
@@ -223,28 +265,20 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
                 required={authMethod === 'pat'}
               />
               <Form.Text className="text-muted">
-                Create a token with <code>read_api</code> scope at 
+                Create a token with <code>api, read_api, read_user, read_repository, read_registry</code> scope at 
                 <code> Settings &gt; Access Tokens</code> in your GitLab account
               </Form.Text>
             </Form.Group>
           ) : (
             <div className="mb-3">
-              <Alert variant="info">
-                <p><strong>SAML Authentication:</strong> Click the button below to authenticate with GitLab using SAML.</p>
-                <Button variant="primary" onClick={handleSamlLogin}>Login with SAML</Button>
-                
-                {gitlabUrl && gitlabUrl.includes('stanford.edu') && samlStatus.includes('credentials') && (
-                  <Button 
-                    variant="success" 
-                    className="ms-2" 
-                    onClick={completeStanfordAuth}
-                  >
-                    Complete Authentication
-                  </Button>
-                )}
+              <Alert variant="secondary">
+                <p><strong>SAML Authentication:</strong> This feature is coming soon and is not yet available.</p>
+                <Button variant="secondary" disabled>
+                  Login with SAML
+                </Button>
               </Alert>
               <div className="form-text">
-                <strong>Status:</strong> {samlStatus}
+                <strong>Status:</strong> Feature in development
               </div>
             </div>
           )}
@@ -290,6 +324,10 @@ const GitLabForm = ({ onSubmit, addAlert }) => {
           
           <Button type="submit" variant="primary">Fetch CI Metrics</Button>
         </Form>
+        
+        <Alert variant="secondary" className="mt-3 mb-3">
+          <strong>Security Note:</strong> Your Personal Access Token is only used for API requests and is never stored permanently. It remains in memory only for the duration of your session.
+        </Alert>
         
         <Alert variant="info" className="mt-3">
           <strong>Note:</strong> For GitLab instances that use SAML authentication (like Stanford's GitLab), 
